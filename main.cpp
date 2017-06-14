@@ -1,0 +1,453 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <vector>
+#include <math.h>
+
+#include "wavefront.h"
+#include "NvRenderDebug.h"
+#include "TestHACD.h"
+#include "HACD.h"
+
+#define TSCALE1 (1.0f/4.0f)
+
+RENDER_DEBUG::RenderDebugTyped *gRenderDebugTyped=NULL;
+RENDER_DEBUG::RenderDebug *gRenderDebug=NULL;
+
+static bool			gShowSourceMesh = true;
+static bool			gShowConvexDecomposition = true;
+static bool			gUseHACD = true;
+static float		gScaleInputMesh = 1;
+
+static HACD::HACD_API::Desc gDesc;
+
+
+float fm_computePlane(const float *A,const float *B,const float *C,float *n) // returns D
+{
+	float vx = (B[0] - C[0]);
+	float vy = (B[1] - C[1]);
+	float vz = (B[2] - C[2]);
+
+	float wx = (A[0] - B[0]);
+	float wy = (A[1] - B[1]);
+	float wz = (A[2] - B[2]);
+
+	float vw_x = vy * wz - vz * wy;
+	float vw_y = vz * wx - vx * wz;
+	float vw_z = vx * wy - vy * wx;
+
+	float mag = ::sqrtf((vw_x * vw_x) + (vw_y * vw_y) + (vw_z * vw_z));
+
+	if ( mag < 0.000001f )
+	{
+		mag = 0;
+	}
+	else
+	{
+		mag = 1.0f/mag;
+	}
+
+	float x = vw_x * mag;
+	float y = vw_y * mag;
+	float z = vw_z * mag;
+
+
+	float D = 0.0f - ((x*A[0])+(y*A[1])+(z*A[2]));
+
+	n[0] = x;
+	n[1] = y;
+	n[2] = z;
+
+	return D;
+}
+
+class MeshBuilder
+{
+public:	
+	MeshBuilder(uint32_t maxVertices)
+	{
+		mVertices.reserve(maxVertices);
+	}
+
+	void getVertex(const float *p,const float *n,uint32_t i1,uint32_t i2)
+	{
+		RENDER_DEBUG::RenderDebugMeshVertex v;
+
+		v.mPosition[0] = p[0];
+		v.mPosition[1] = p[1];
+		v.mPosition[2] = p[2];
+
+		v.mNormal[0] = n[0];
+		v.mNormal[1] = n[1];
+		v.mNormal[2] = n[2];
+
+		v.mTexel[0] = p[i1]*TSCALE1;
+		v.mTexel[1] = p[i2]*TSCALE1;
+
+		mVertices.push_back(v);
+	}
+
+	void addTriangle(const float *p1,const float *p2,const float *p3)
+	{
+		float normal[3];
+		fm_computePlane(p3,p2,p1,normal);
+
+		double nx = fabs(normal[0]);
+		double ny = fabs(normal[1]);
+		double nz = fabs(normal[2]);
+
+		uint32_t i1 = 0;
+		uint32_t i2 = 0;
+
+		if ( nx <= ny && nx <= nz ) 
+			i1 = 0;
+		if ( ny <= nx && ny <= nz ) 
+			i1 = 1;
+		if ( nz <= nx && nz <= ny ) 
+			i1 = 2;
+
+		switch ( i1 )
+		{
+		case 0:
+			if ( ny < nz )
+				i2 = 1;
+			else
+				i2 = 2;
+			break;
+		case 1:
+			if ( nx < nz )
+				i2 = 0;
+			else
+				i2 = 2;
+			break;
+		case 2:
+			if ( nx < ny )
+				i2 = 0;
+			else
+				i2 = 1;
+			break;
+		}
+
+		getVertex(p1,normal,i1,i2);
+		getVertex(p2,normal,i1,i2);
+		getVertex(p3,normal,i1,i2);
+	}
+
+	std::vector< RENDER_DEBUG::RenderDebugMeshVertex > mVertices;
+};
+
+void createMenus(void)
+{
+	gRenderDebug->sendRemoteCommand("BeginTab \"ObjView\"");	// Mark the beginning of a new tab display in the DebugView application
+	gRenderDebug->sendRemoteCommand("BeginGroup \"Controls\"");	// Mark the beginning of a group of controls.
+	gRenderDebug->sendRemoteCommand("FileTransferButton \" Select Wavefront File\" WavefrontFile \"Choose a Wavefront OBJ file to transfer\" *.obj");
+	gRenderDebug->sendRemoteCommand("Button ToggleDisplayMode \"toggle\""); 
+	gRenderDebug->sendRemoteCommand("CheckBox ShowSourceMesh true ShowSourceMesh");
+	gRenderDebug->sendRemoteCommand("CheckBox ShowConvexDecomposition true ShowConvexDecomposition");
+	gRenderDebug->sendRemoteCommand("Slider ScaleInputMesh 1 1 50 ScaleInputMesh");
+	gRenderDebug->sendRemoteCommand("Button PerformConvexDecomposition \"decomp\"");
+	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'controls'
+
+	gRenderDebug->sendRemoteCommand("BeginGroup \"HACD Settings\"");	// Mark the beginning of a group of controls.
+	gRenderDebug->sendRemoteCommand("CheckBox UseFastVersion true UseFastVersion");
+	gRenderDebug->sendRemoteCommand("CheckBox UseHACD true UseHACD");
+	gRenderDebug->sendRemoteCommand("SliderInt DecompositionDepth 7 1 16 DecompositionDepth");
+	gRenderDebug->sendRemoteCommand("Slider Concavity 0.2 0 1 Concavity");
+	gRenderDebug->sendRemoteCommand("Slider BackFaceDistanceFactor 0.2 0 1 BackFaceDistanceFactor");
+	gRenderDebug->sendRemoteCommand("Slider SmallClusterThreshold 0 0 1 SmallClusterThreshold");
+	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
+
+	gRenderDebug->sendRemoteCommand("BeginGroup \"Hull Options\"");	// Mark the beginning of a group of controls.
+	gRenderDebug->sendRemoteCommand("CheckBox NormalizeInputMesh true NormalizeInputMesh");
+	gRenderDebug->sendRemoteCommand("SliderInt MaxConvexHulls 256 1 256 MaxConvexHulls");
+	gRenderDebug->sendRemoteCommand("SliderInt MaxMergeHulls 256 1 256 MaxMergeHulls");
+	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 
+
+
+	gRenderDebug->sendRemoteCommand("EndTab"); // End the tab called 'Test RenderDebug'
+}
+
+int main(int argc,const char **argv)
+{
+	if ( argc == 2 )
+	{
+		const char *dllName=NULL;
+#ifdef _WIN64
+		dllName = "NvRenderDebug_x64.dll";
+#else
+		dllName = "NvRenderDebug_x86.dll";
+#endif
+		printf("Loading RenderDebug DLL\r\n");
+		RENDER_DEBUG::RenderDebug::Desc desc;
+		desc.dllName = dllName;
+
+		char recordName[512];
+		sprintf_s(recordName,512,"%s", argv[1]);
+		char *obj = strstr(recordName,".obj");
+		if ( obj )
+		{
+			*obj = 0;
+			strcat(recordName,".rec");
+		}
+
+		desc.applicationName = "ObjView";
+		desc.recordFileName = recordName;
+		desc.runMode = RENDER_DEBUG::RenderDebug::RM_CLIENT_OR_FILE;
+		gRenderDebug = RENDER_DEBUG::createRenderDebug(desc);
+		if ( gRenderDebug )
+		{
+
+			WavefrontObj sourceMesh;
+			printf("Loading wavefront.obj file '%s'\r\n", argv[1] );
+			sourceMesh.loadObj(argv[1]);
+			if (sourceMesh.mTriCount)
+			{
+				TestHACD *thacd = TestHACD::create();
+
+				printf("Found: %d triangles.\r\n", sourceMesh.mTriCount );
+
+				gRenderDebug->addToCurrentState(RENDER_DEBUG::DebugRenderState::CenterText);
+
+				{
+
+
+
+					float pos[3] = { 0, 2, 0 };
+					gRenderDebug->debugText(pos,"%s", argv[1] );
+
+					uint32_t meshId = 0;
+
+					uint32_t frameCount = 2;
+					if ( gRenderDebug->getRunMode() == RENDER_DEBUG::RenderDebug::RM_CLIENT )
+					{
+						frameCount = 500000;
+					}
+					bool solid=true;
+
+					const char *meshName = argv[1];
+
+					// main pump loop...
+					WavefrontObj w;
+
+					for (uint32_t i=0; i<frameCount; i++)
+					{
+						if (meshId == 0)
+						{
+							sourceMesh.deepCopyScale(w, gScaleInputMesh);
+							gDesc.mVertexCount = w.mVertexCount;
+							gDesc.mTriangleCount = w.mTriCount;
+							gDesc.mVertices = w.mVertices;
+							gDesc.mIndices = w.mIndices;
+
+							meshId = gRenderDebug->getMeshId();
+							{
+								MeshBuilder mb(w.mTriCount * 3);
+								for (uint32_t i = 0; i < w.mTriCount; i++)
+								{
+									uint32_t i1 = w.mIndices[i * 3 + 0];
+									uint32_t i2 = w.mIndices[i * 3 + 1];
+									uint32_t i3 = w.mIndices[i * 3 + 2];
+									const float *p1 = &w.mVertices[i1 * 3];
+									const float *p2 = &w.mVertices[i2 * 3];
+									const float *p3 = &w.mVertices[i3 * 3];
+									mb.addTriangle(p3, p2, p1);
+								}
+								gRenderDebug->createTriangleMesh(meshId, (uint32_t)mb.mVertices.size(), &mb.mVertices[0], 0, NULL);
+							}
+						}
+
+
+						float pos[3] = { 0, 2, 0 };
+						gRenderDebug->debugText(pos,"%s", meshName );
+						gRenderDebug->addToCurrentState(RENDER_DEBUG::DebugRenderState::SolidWireShaded);
+						gRenderDebug->addToCurrentState(RENDER_DEBUG::DebugRenderState::CameraFacing);
+						gRenderDebug->setCurrentColor(0xFFFF00);
+
+						if (gShowSourceMesh)
+						{
+							if (solid)
+							{
+								RENDER_DEBUG::RenderDebugInstance instance;
+								gRenderDebug->renderTriangleMeshInstances(meshId, 1, &instance);
+							}
+							else
+							{
+								for (uint32_t i = 0; i < w.mTriCount; i++)
+								{
+									uint32_t i1 = w.mIndices[i * 3 + 0];
+									uint32_t i2 = w.mIndices[i * 3 + 1];
+									uint32_t i3 = w.mIndices[i * 3 + 2];
+
+									const float *p1 = &w.mVertices[i1 * 3];
+									const float *p2 = &w.mVertices[i2 * 3];
+									const float *p3 = &w.mVertices[i3 * 3];
+
+									gRenderDebug->debugTri(p3, p2, p1);
+								}
+							}
+						}
+						if (thacd == nullptr)
+						{
+							thacd = TestHACD::create();
+						}
+						if (thacd && gShowConvexDecomposition )
+						{
+							thacd->render(gRenderDebug);
+						}
+
+						gRenderDebug->render(1.0f/60.0f,NULL);
+
+						uint32_t argc;
+						const char **argv = gRenderDebug->getRemoteCommand(argc);
+						if ( argv )
+						{
+							const char *cmd = argv[0];
+							if ( strcmp(cmd,"client_stop") == 0 )
+							{
+								break;
+							}
+							else if (strcmp(cmd,"toggle") == 0  )
+							{
+								solid = solid ? false : true;
+							}
+							else if (strcmp(cmd, "decomp") == 0 && thacd )
+							{
+								printf("Performing Convex Decomposition at depth: %d\n", gDesc.mDecompositionDepth);
+								thacd->decompose(gDesc);
+							}
+							else if (strcmp(cmd, "DecompositionDepth") == 0 && argc == 2 )
+							{
+								gDesc.mDecompositionDepth = atoi(argv[1]);
+								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepth);
+							}
+							else if (strcmp(cmd, "ShowSourceMesh") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gShowSourceMesh = strcmp(value, "true") == 0;
+								printf("ShowSourceMesh=%s\n", value);
+							}
+							else if (strcmp(cmd, "ShowConvexDecomposition") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gShowConvexDecomposition = strcmp(value, "true") == 0;
+								printf("ShowConvexDecomposition=%s\n", value);
+							}
+							else if (strcmp(cmd, "UseFastVersion") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mUseFastVersion = strcmp(value, "true") == 0;
+								printf("UseFastVersion=%s\n", value);
+							}
+							else if (strcmp(cmd, "UseHACD") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mUseHACD = strcmp(value, "true") == 0;
+								printf("UseHACD=%s\n", value);
+							}
+							else if (strcmp(cmd, "NormalizeInputMesh") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mNormalizeInputMesh = strcmp(value, "true") == 0;
+								printf("NormalizeInputMesh=%s\n", value);
+							}
+							else if (strcmp(cmd, "MaxConvexHulls") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mMaxHullCount = (uint32_t)atoi(value);
+								printf("MaxConvexHulls: %d\n", gDesc.mMaxHullCount);
+							}
+							else if (strcmp(cmd, "MaxMergeHulls") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mMaxMergeHullCount = (uint32_t)atoi(value);
+								printf("MaxMergeHulls: %d\n", gDesc.mMaxMergeHullCount);
+							}
+							else if (strcmp(cmd, "Concavity") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mConcavity = (float)atof(value);
+								printf("Concavity=%0.2f\n", gDesc.mConcavity);
+							}
+							else if (strcmp(cmd, "BackFaceDistanceFactor") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mBackFaceDistanceFactor = (float)atof(value);
+								printf("BackFaceDistanceFactor=%0.2f\n", gDesc.mBackFaceDistanceFactor);
+							}
+							else if (strcmp(cmd, "SmallClusterThreshold") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mSmallClusterThreshold = (float)atof(value);
+								printf("SmallClusterThreshold=%0.2f\n", gDesc.mSmallClusterThreshold);
+							}
+							else if (strcmp(cmd, "ScaleInputMesh") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gScaleInputMesh = (float)atof(value);
+								printf("ScaleInputMesh=%0.2f\n", gScaleInputMesh);
+								if (thacd)
+								{
+									thacd->release();
+									thacd = nullptr;
+								}
+								gRenderDebug->releaseTriangleMesh(meshId);
+								meshId = 0;
+							}
+						}
+
+						const char *nameSpace;
+						const char *resourceName;
+						bool isBigEndianRemote;
+						uint32_t dlen;
+						const void *data = gRenderDebug->getRemoteResource(nameSpace, resourceName, dlen, isBigEndianRemote);
+						while (data)
+						{
+							printf("Received remote resource %s:%s %d bytes long and remote machine is %sbig endian\r\n",
+								nameSpace,
+								resourceName,
+								dlen,
+								isBigEndianRemote ? "" : "not ");
+
+							if (strcmp(nameSpace, "WavefrontFile") == 0)
+							{
+								thacd->release();
+								thacd = nullptr;
+								meshName = resourceName;
+								sourceMesh.loadObj((const uint8_t *)data, dlen);
+								printf("Loaded Wavefront file %s with %d triangles and %d vertices.\r\n", resourceName, w.mTriCount, w.mVertexCount);
+								gRenderDebug->releaseTriangleMesh(meshId);
+								meshId = 0;
+							}
+
+							data = gRenderDebug->getRemoteResource(nameSpace, resourceName, dlen, isBigEndianRemote);
+						}
+
+
+						if ( i == 1 )
+						{
+							createMenus();
+						}
+					}
+				}
+				if (thacd)
+				{
+					thacd->release();
+				}
+			}
+			else
+			{
+				printf("Failed to find any data in file.\r\n");
+			}
+			gRenderDebug->release();
+		}
+		else
+		{
+			printf("Failed to load RenderDebug DLL (%s)\r\n", desc.dllName );
+		}
+	}
+	else
+	{
+		printf("ObjView <fname.obj>\r\n");
+	}
+	return 0;
+}
