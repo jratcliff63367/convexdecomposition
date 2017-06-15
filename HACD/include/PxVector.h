@@ -60,14 +60,6 @@ namespace hacd
 		typedef T*			iterator;
 		typedef const T*	const_iterator;
 
-
-		explicit  vector(const PxEmpty& v)
-		{
-			HACD_UNUSED(v);
-			if(mData)
-				mCapacity |= HACD_SIGN_BITMASK;
-		}
-
 		/*!
 		Default array constructor. Initialize an empty array
 		*/
@@ -112,7 +104,7 @@ namespace hacd
 		{
 			destroy(mData, mData + mSize);
 
-			if(capacity() && !isInUserMemory())
+			if(capacity())
 				deallocate(mData);
 		}
 
@@ -465,7 +457,7 @@ namespace hacd
 		//////////////////////////////////////////////////////////////////////////
 		HACD_FORCE_INLINE uint32_t capacity()	const
 		{
-			return mCapacity & ~HACD_SIGN_BITMASK;
+			return mCapacity;
 		}
 
 	protected:
@@ -548,12 +540,7 @@ namespace hacd
 			return capacity == 0 ? 1 : capacity * 2;
 		}
 
-		// We need one bit to mark arrays that have been deserialized from a user-provided memory block.
-		// For alignment & memory saving purpose we store that bit in the rarely used capacity member.
-		HACD_FORCE_INLINE	uint32_t		isInUserMemory()		const
-		{
-			return mCapacity & HACD_SIGN_BITMASK;
-		}
+
 
 	public: // need to be public for serialization
 
@@ -582,8 +569,7 @@ namespace hacd
 
 		copy(newData, newData + mSize, mData);
 		destroy(mData, mData + mSize);
-		if(!isInUserMemory())
-			deallocate(mData);
+		deallocate(mData);
 
 		mData = newData;
 		mCapacity = capacity;

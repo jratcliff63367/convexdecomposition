@@ -112,7 +112,7 @@ void dgArray<T>::Resize (int32_t size) const
 {
 	if (size >= m_maxSize) {
 		size = size + m_granulatity - (size + m_granulatity) % m_granulatity;
-		T* const newArray = (T*) HACD_ALLOC_ALIGNED(int32_t (sizeof (T) * size), m_aligmentInByte);
+		T* const newArray = (T*) HACD_ALLOC(int32_t (sizeof (T) * size));
 		if (m_array) {
 			for (int32_t i = 0; i < m_maxSize; i ++) {
 				newArray[i]	= m_array[i];
@@ -123,7 +123,7 @@ void dgArray<T>::Resize (int32_t size) const
 		m_maxSize = size;
 	} else if (size < m_maxSize) {
 		size = size + m_granulatity - (size + m_granulatity) % m_granulatity;
-		T* const newArray = (T*) HACD_ALLOC_ALIGNED(int32_t (sizeof (T) * size), m_aligmentInByte);
+		T* const newArray = (T*) HACD_ALLOC(int32_t (sizeof (T) * size));
 		if (m_array) {
 			for (int32_t i = 0; i < size; i ++) {
 				newArray[i]	= m_array[i];

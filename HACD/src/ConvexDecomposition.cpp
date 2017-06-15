@@ -43,6 +43,7 @@
 #include "ConvexDecomposition.h"
 #include "ConvexHull.h"
 #include "dgConvexHull3d.h"
+#include "PxVector.h"
 
 static const float EPSILON=0.0001f;
 

@@ -150,38 +150,9 @@ General defines
 
 namespace hacd
 {
-	class PxEmpty;
 
-#define HACD_SIGN_BITMASK		0x80000000
-
-extern size_t gAllocCount;
-extern size_t gAllocSize;
-
-HACD_INLINE void * AllocAligned(size_t size,size_t alignment)
-{
-	gAllocSize+=size;
-	gAllocCount++;
-	void *ret = NULL;
-#ifdef HACD_WINDOWS
-	ret = ::_aligned_malloc(size,alignment);
-#else
-	posix_memalign(&ret,alignment,size);
-#endif
-	return ret;
-}
-
-HACD_INLINE void FreeAligned(void *memory)
-{
-#ifdef HACD_WINDOWS
-	::_aligned_free(memory);
-#else
-	::free(memory);
-#endif
-}
-
-#define HACD_ALLOC_ALIGNED(x,y) hacd::AllocAligned(x,y)
-#define HACD_ALLOC(x) hacd::AllocAligned(x,16)
-#define HACD_FREE(x)  hacd::FreeAligned(x)
+#define HACD_ALLOC(x) ::malloc(x)
+#define HACD_FREE(x)  ::free(x)
 
 #define HACD_ASSERT(x) assert(x)
 #define HACD_ALWAYS_ASSERT() assert(0)
@@ -282,6 +253,5 @@ typedef uint32_t HaSizeT;
 #define HACD_SQRT(x) float (sqrt(x))	
 #define HACD_RECIP_SQRT(x) (float (1.0f) / dgSqrt(x))	
 
-#include "PxVector.h"
 
 #endif
