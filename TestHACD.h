@@ -18,7 +18,9 @@ public:
 
 	virtual void decompose(HACD::HACD_API::Desc &desc) = 0;
 
-	virtual void render(RENDER_DEBUG::RenderDebug *renderDebug) = 0;
+	virtual void render(RENDER_DEBUG::RenderDebug *renderDebug,float explodeViewScale,const float center[3]) = 0;
+
+	virtual uint32_t getHullCount(void) const = 0;
 
 	virtual void release(void) = 0;
 protected:

@@ -28,6 +28,9 @@
         HACD/include/*.h
         HACD/public/*.h
         HACD/src/*.cpp
+        VHACD/inc/*.h
+        VHACD/public/*.h
+        VHACD/src/*.cpp
         NvRenderDebug/*.h
         NvRenderDebug/*.cpp
       </Files>
@@ -45,6 +48,8 @@
         <SearchPaths type="header">
         	"../../HACD/include"
         	"../../HACD/public"
+        	"../../VHACD/public"
+        	"../../VHACD/inc"
         	"../../NvRenderDebug"
         </SearchPaths>
 

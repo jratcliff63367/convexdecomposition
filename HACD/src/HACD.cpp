@@ -33,6 +33,7 @@
 
 */
 #include "HACD.h"
+#include "VHACD.h"
 #include <stdlib.h>
 #include <string.h>
 #include "PlatformConfigHACD.h"
@@ -76,8 +77,41 @@ static float  fm_computeMeshVolume(const float *vertices,uint32_t tcount,const u
 	return volume;
 }
 
+static void  fm_computCenter(uint32_t vcount,const float *vertices,float center[3])
+{
+	float bmin[3];
+	float bmax[3];
 
-class MyHACD_API : public HACD_API, public UANS::UserAllocated
+	bmin[0] = vertices[0];
+	bmin[1] = vertices[1];
+	bmin[2] = vertices[2];
+
+	bmax[0] = vertices[0];
+	bmax[1] = vertices[1];
+	bmax[2] = vertices[2];
+
+	for (uint32_t i = 1; i < vcount; i++)
+	{
+		const float *v = &vertices[i * 3];
+
+		if (v[0] < bmin[0]) bmin[0] = v[0];
+		if (v[1] < bmin[1]) bmin[1] = v[1];
+		if (v[2] < bmin[2]) bmin[2] = v[2];
+
+		if (v[0] > bmax[0]) bmax[0] = v[0];
+		if (v[1] > bmax[1]) bmax[1] = v[1];
+		if (v[2] > bmax[2]) bmax[2] = v[2];
+	}
+
+	center[0] = (bmax[0] - bmin[0])*0.5f + bmin[0];
+	center[1] = (bmax[1] - bmin[1])*0.5f + bmin[1];
+	center[2] = (bmax[2] - bmin[2])*0.5f + bmin[2];
+
+}
+
+
+
+class MyHACD_API : public HACD_API, public UANS::UserAllocated, public VHACD::IVHACD::IUserCallback, public VHACD::IVHACD::IUserLogger
 {
 public:
 	class Vec3
@@ -105,6 +139,21 @@ public:
 	virtual ~MyHACD_API(void)
 	{
 		releaseHACD();
+	}
+
+	//
+	virtual void Update(const double overallProgress,
+		const double stageProgress,
+		const double operationProgress,
+		const char* const stage,
+		const char* const operation) final
+	{
+		printf("VHACD::OverallProgress: %0.2f : StageProgress: %0.2f : Operation Progress: %0.2f : %s : %s\n",overallProgress, stageProgress, operationProgress, stage, operation);
+	}
+
+	virtual void Log(const char* const msg) final
+	{
+		printf("VHACD::%s\n", msg);
 	}
 
 	void normalizeInputMesh(Desc &desc,Vec3 &inputScale,Vec3 &inputCenter)
@@ -315,7 +364,7 @@ public:
 		if ( desc.mVertexCount )
 		{
 
-			if ( !desc.mUseHACD) // if using legacy ACD
+			if ( desc.mMode == USE_ACD) // if using legacy ACD
 			{
 				CONVEX_DECOMPOSITION::ConvexDecomposition *cd = CONVEX_DECOMPOSITION::createConvexDecomposition();
 				CONVEX_DECOMPOSITION::DecompDesc dcompDesc;
@@ -345,10 +394,11 @@ public:
 					h.mTriangleCount = result->mHullTcount;
 					h.mVertexCount = result->mHullVcount;
 					h.mVolume = fm_computeMeshVolume(h.mVertices,h.mTriangleCount,h.mIndices);
+					fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
 					mHulls.push_back(h);
 				}
 			}
-			else
+			else if ( desc.mMode == USE_HACD)
 			{
 				Vec3 inputScale(1,1,1);
 				Vec3 inputCenter(0,0,0);
@@ -450,13 +500,14 @@ public:
 									}
 
 									h.mVolume = fm_computeMeshVolume(h.mVertices,h.mTriangleCount,h.mIndices);
+									fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
 
 									mHulls.push_back(h);
 
 									// save it!
 									delete hull;
 								}
-
+								ret = mHulls.size();
 								delete solid;
 								solid = NULL;
 								dgPolyhedra nextSegment;
@@ -477,15 +528,64 @@ public:
 				}
 				ret= (uint32_t)mHulls.size();
 			}
+			else
+			{
+				VHACD::IVHACD *vhacd = VHACD::CreateVHACD();
+				if (vhacd)
+				{
+					VHACD::IVHACD::Parameters p;
+					p.m_concavity			= desc.mConcavity;
+					p.m_maxNumVerticesPerCH = desc.mMaxHullVertices;
+					p.m_callback = this;
+					p.m_logger = this;
 
-			if ( desc.mNormalizeInputMesh && desc.mUseHACD )
+					bool ok = vhacd->Compute(desc.mVertices, 3, desc.mVertexCount, (const int *const )desc.mIndices, 3, desc.mTriangleCount, p);
+					if (ok)
+					{
+						ret = vhacd->GetNConvexHulls();
+						for (unsigned int i = 0; i < ret; i++)
+						{
+							VHACD::IVHACD::ConvexHull vhull;
+							vhacd->GetConvexHull(i, vhull);
+							Hull h;
+							h.mVertexCount = vhull.m_nPoints;
+							h.mVertices = (float *)HACD_ALLOC(sizeof(float) * 3 * h.mVertexCount);
+							for (uint32_t i = 0; i < h.mVertexCount; i++)
+							{
+								float *dest = (float *)&h.mVertices[i * 3];
+								dest[0] = (float)vhull.m_points[i * 3 + 0];
+								dest[1] = (float)vhull.m_points[i * 3 + 1];
+								dest[2] = (float)vhull.m_points[i * 3 + 2];
+							}
+							h.mTriangleCount = vhull.m_nTriangles;
+							uint32_t *destIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
+							h.mIndices = destIndices;
+							for (uint32_t i = 0; i < h.mTriangleCount; i++)
+							{
+								destIndices[0] = vhull.m_triangles[i * 3 + 0];
+								destIndices[1] = vhull.m_triangles[i * 3 + 1];
+								destIndices[2] = vhull.m_triangles[i * 3 + 2];
+								destIndices += 3;
+							}
+
+							h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
+							fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
+
+							mHulls.push_back(h);
+						}
+					}
+
+					vhacd->Release();
+				}
+			}
+
+			if ( desc.mNormalizeInputMesh && desc.mMode != USE_ACD )
 			{
 				releaseNormalizedInputMesh(desc);
 			}
 		}
 
-		if ( ret && ((ret > desc.mMaxMergeHullCount) || 
-			(desc.mSmallClusterThreshold != 0.0f)) )
+		if ( ret && ret > desc.mMaxMergeHullCount )
 		{
 			MergeHullsInterface *mhi = createMergeHullsInterface();
 			if ( mhi )
@@ -534,17 +634,20 @@ public:
 					memcpy((float *)h.mVertices,mh.mVertices,sizeof(float)*3*h.mVertexCount);
 
 					h.mVolume = fm_computeMeshVolume(h.mVertices,h.mTriangleCount,h.mIndices);
+					fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
 
 					mHulls.push_back(h);
 				}
 
-				ret = (uint32_t)mHulls.size();
+				
 
 				mhi->release();
 			}
 			HACD_FREE(tempIndices);
 			HACD_FREE(tempPositions);
 		}
+
+		ret = (uint32_t)mHulls.size();
 
 		return ret;
 	}

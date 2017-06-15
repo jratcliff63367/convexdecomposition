@@ -50,6 +50,12 @@ public:
 class HACD_API
 {
 public:
+	enum Mode
+	{
+		USE_ACD,		// Use approximate convex decomposition (recursive sub-division)
+		USE_HACD,		// Use standard hierarchical convex decomposition
+		USE_VHACD,		// Use voxelized hierarchical convex decomposition
+	};
 	
 	class Desc
 	{
@@ -59,7 +65,7 @@ public:
 			init();
 		}
 
-		bool				mUseHACD;
+		Mode				mMode;
 		bool				mRemoveDuplicateVertices;
 		bool				mNormalizeInputMesh;
 		bool				mUseFastVersion;
@@ -77,7 +83,7 @@ public:
 		ICallback*			mCallback;
 		void init(void)
 		{
-			mUseHACD = true;
+			mMode = USE_HACD;
 			mRemoveDuplicateVertices = true;
 			mDecompositionDepth = 0;
 			mNormalizeInputMesh = false;
@@ -103,6 +109,7 @@ public:
 		uint32_t			mVertexCount;
 		const float			*mVertices;
 		const uint32_t		*mIndices;
+		float				mCenter[3];		// center of this convex hull
 		float				mVolume;
 	};
 
