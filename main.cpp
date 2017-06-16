@@ -206,7 +206,6 @@ void createMenus(void)
 
 int main(int argc,const char **argv)
 {
-	if ( argc == 2 )
 	{
 		const char *dllName=NULL;
 #ifdef _WIN64
@@ -235,9 +234,11 @@ int main(int argc,const char **argv)
 		{
 
 			WavefrontObj sourceMesh;
-			printf("Loading wavefront.obj file '%s'\r\n", argv[1] );
-			sourceMesh.loadObj(argv[1]);
-			if (sourceMesh.mTriCount)
+			if (argc == 2)
+			{
+				printf("Loading wavefront.obj file '%s'\r\n", argv[1]);
+				sourceMesh.loadObj(argv[1]);
+			}
 			{
 				TestHACD *thacd = TestHACD::create();
 
@@ -265,7 +266,7 @@ int main(int argc,const char **argv)
 
 					for (uint32_t i=0; i<frameCount; i++)
 					{
-						if (meshId == 0)
+						if (meshId == 0 && sourceMesh.mVertexCount )
 						{
 							sourceMesh.deepCopyScale(w, gScaleInputMesh);
 							gDesc.mVertexCount = w.mVertexCount;
@@ -454,7 +455,7 @@ int main(int argc,const char **argv)
 								thacd = nullptr;
 								meshName = resourceName;
 								sourceMesh.loadObj((const uint8_t *)data, dlen);
-								printf("Loaded Wavefront file %s with %d triangles and %d vertices.\r\n", resourceName, w.mTriCount, w.mVertexCount);
+								printf("Loaded Wavefront file %s with %d triangles and %d vertices.\r\n", resourceName, sourceMesh.mTriCount, sourceMesh.mVertexCount);
 								gRenderDebug->releaseTriangleMesh(meshId);
 								meshId = 0;
 							}
@@ -474,20 +475,12 @@ int main(int argc,const char **argv)
 					thacd->release();
 				}
 			}
-			else
-			{
-				printf("Failed to find any data in file.\r\n");
-			}
 			gRenderDebug->release();
 		}
 		else
 		{
 			printf("Failed to load RenderDebug DLL (%s)\r\n", desc.dllName );
 		}
-	}
-	else
-	{
-		printf("ObjView <fname.obj>\r\n");
 	}
 	return 0;
 }
