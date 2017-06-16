@@ -174,7 +174,7 @@ static void  fm_computCenter(uint32_t vcount, const float *vertices, float cente
 
 void createMenus(void)
 {
-	gRenderDebug->sendRemoteCommand("BeginTab \"ObjView\"");	// Mark the beginning of a new tab display in the DebugView application
+	gRenderDebug->sendRemoteCommand("BeginTab \"Convex Decomposition - V-HACD\"");	// Mark the beginning of a new tab display in the DebugView application
 
 	gRenderDebug->sendRemoteCommand("BeginGroup \"Controls\"");	// Mark the beginning of a group of controls.
 	gRenderDebug->sendRemoteCommand("FileTransferButton \" Select Wavefront File\" WavefrontFile \"Choose a Wavefront OBJ file to transfer\" *.obj");
@@ -183,28 +183,21 @@ void createMenus(void)
 	gRenderDebug->sendRemoteCommand("CheckBox ShowConvexDecomposition true ShowConvexDecomposition");
 	gRenderDebug->sendRemoteCommand("Slider ScaleInputMesh 1 1 50 ScaleInputMesh");
 	gRenderDebug->sendRemoteCommand("Slider ExplodeViewScale 1 1 4 ExplodeViewScale");
-	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'controls'
-
-	gRenderDebug->sendRemoteCommand("BeginGroup \"Decomposition Settings\"");	// Mark the beginning of a group of controls.
-	gRenderDebug->sendRemoteCommand("Combo Mode Mode ACD HACD VHACD");
 	gRenderDebug->sendRemoteCommand("Button PerformConvexDecomposition \"decomp\"");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'controls'
 
-	gRenderDebug->sendRemoteCommand("BeginGroup \"ACD Settings\"");	// Mark the beginning of a group of controls.
-	gRenderDebug->sendRemoteCommand("SliderInt DecompositionDepth 7 1 16 DecompositionDepth");
-	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
+	
+	gRenderDebug->sendRemoteCommand("BeginGroup \"V-HACD Settings\"");	// Mark the beginning of a group of controls.
 
-	gRenderDebug->sendRemoteCommand("BeginGroup \"HACD Settings\"");	// Mark the beginning of a group of controls.
-	gRenderDebug->sendRemoteCommand("CheckBox UseFastVersion true UseFastVersion");
+	gRenderDebug->sendRemoteCommand("SliderInt DecompositionDepth 10 1 20 DecompositionDepth");
+	gRenderDebug->sendRemoteCommand("SliderInt MaxHullVertices 32 8 512 MaxHullVertices");
 	gRenderDebug->sendRemoteCommand("Slider Concavity 0.2 0 4 Concavity");
-	gRenderDebug->sendRemoteCommand("Slider BackFaceDistanceFactor 0.2 0 1 BackFaceDistanceFactor");
-	gRenderDebug->sendRemoteCommand("Slider SmallClusterThreshold 0 0 1 SmallClusterThreshold");
+	gRenderDebug->sendRemoteCommand("Slider Gamma 0.0005 0 0.1 Gamma");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
 
-	gRenderDebug->sendRemoteCommand("BeginGroup \"Hull Options\"");	// Mark the beginning of a group of controls.
+	gRenderDebug->sendRemoteCommand("BeginGroup \"Pre-process Options\"");	// Mark the beginning of a group of controls.
+	gRenderDebug->sendRemoteCommand("CheckBox RemoveDuplicateVertices true RemoveDuplicateVertices");
 	gRenderDebug->sendRemoteCommand("CheckBox NormalizeInputMesh true NormalizeInputMesh");
-	gRenderDebug->sendRemoteCommand("SliderInt MaxConvexHulls 256 1 256 MaxConvexHulls");
-	gRenderDebug->sendRemoteCommand("SliderInt MaxMergeHulls 256 1 256 MaxMergeHulls");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 
 
 
@@ -256,9 +249,6 @@ int main(int argc,const char **argv)
 
 
 
-					float pos[3] = { 0, 2, 0 };
-					gRenderDebug->debugText(pos,"%s", argv[1] );
-
 					uint32_t meshId = 0;
 
 					uint32_t frameCount = 2;
@@ -302,15 +292,12 @@ int main(int argc,const char **argv)
 						}
 
 
-						float pos[3] = { 0, 2, 0 };
-						gRenderDebug->debugText(pos,"%s", meshName );
+						gRenderDebug->debugText2D(0, 0, 0.5f, 2.0f, false, 0xFFFF00, "%s", meshName);
 						if (thacd)
 						{
-							pos[1] = 2.5f;
-							gRenderDebug->debugText(pos, "HullCount: %d", thacd->getHullCount());
+							gRenderDebug->debugText2D(0, 0.04f, 0.5f, 2.0f, false, 0xFFFF00, "HullCount: %d", thacd->getHullCount());
 						}
-
-
+	
 
 						gRenderDebug->addToCurrentState(RENDER_DEBUG::DebugRenderState::SolidWireShaded);
 						gRenderDebug->addToCurrentState(RENDER_DEBUG::DebugRenderState::CameraFacing);
@@ -320,7 +307,6 @@ int main(int argc,const char **argv)
 						{
 							if (solid)
 							{
-//								gRenderDebug->setCurrentTexture(RENDER_DEBUG::DebugTextures::IDETAIL01, 4.0f, RENDER_DEBUG::DebugTextures::WHITE, 1.0f);
 								RENDER_DEBUG::RenderDebugInstance instance;
 								gRenderDebug->renderTriangleMeshInstances(meshId, 1, &instance);
 							}
@@ -374,6 +360,11 @@ int main(int argc,const char **argv)
 								gDesc.mDecompositionDepth = atoi(argv[1]);
 								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepth);
 							}
+							else if (strcmp(cmd, "MaxHullVertices") == 0 && argc == 2)
+							{
+								gDesc.mMaxHullVertices = atoi(argv[1]);
+								printf("MaxHullVertices=%d\n", gDesc.mMaxHullVertices);
+							}
 							else if (strcmp(cmd, "ShowSourceMesh") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
@@ -386,22 +377,12 @@ int main(int argc,const char **argv)
 								gShowConvexDecomposition = strcmp(value, "true") == 0;
 								printf("ShowConvexDecomposition=%s\n", value);
 							}
-							else if (strcmp(cmd, "UseFastVersion") == 0 && argc == 2)
-							{
-								const char *value = argv[1];
-								gDesc.mUseFastVersion = strcmp(value, "true") == 0;
-								printf("UseFastVersion=%s\n", value);
-							}
 							else if (strcmp(cmd, "Mode") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
 								if (strcmp(value, "ACD") == 0)
 								{
 									gDesc.mMode = HACD::HACD_API::USE_ACD;
-								}
-								else if (strcmp(value, "HACD") == 0)
-								{
-									gDesc.mMode = HACD::HACD_API::USE_HACD;
 								}
 								else if (strcmp(value, "VHACD") == 0)
 								{
@@ -415,47 +396,35 @@ int main(int argc,const char **argv)
 								gDesc.mNormalizeInputMesh = strcmp(value, "true") == 0;
 								printf("NormalizeInputMesh=%s\n", value);
 							}
-							else if (strcmp(cmd, "MaxConvexHulls") == 0 && argc == 2)
+							else if (strcmp(cmd, "RemoveDuplicateVertices") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
-								gDesc.mMaxHullCount = (uint32_t)atoi(value);
-								printf("MaxConvexHulls: %d\n", gDesc.mMaxHullCount);
-							}
-							else if (strcmp(cmd, "MaxMergeHulls") == 0 && argc == 2)
-							{
-								const char *value = argv[1];
-								gDesc.mMaxMergeHullCount = (uint32_t)atoi(value);
-								printf("MaxMergeHulls: %d\n", gDesc.mMaxMergeHullCount);
+								gDesc.mRemoveDuplicateVertices = strcmp(value, "true") == 0;
+								printf("RemoveDuplicateVertices=%s\n", value);
 							}
 							else if (strcmp(cmd, "Concavity") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
 								gDesc.mConcavity = (float)atof(value);
-								printf("Concavity=%0.2f\n", gDesc.mConcavity);
+								printf("Concavity=%0.5f\n", gDesc.mConcavity);
 							}
-							else if (strcmp(cmd, "BackFaceDistanceFactor") == 0 && argc == 2)
+							else if (strcmp(cmd, "Gamma") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
-								gDesc.mBackFaceDistanceFactor = (float)atof(value);
-								printf("BackFaceDistanceFactor=%0.2f\n", gDesc.mBackFaceDistanceFactor);
-							}
-							else if (strcmp(cmd, "SmallClusterThreshold") == 0 && argc == 2)
-							{
-								const char *value = argv[1];
-								gDesc.mSmallClusterThreshold = (float)atof(value);
-								printf("SmallClusterThreshold=%0.2f\n", gDesc.mSmallClusterThreshold);
+								gDesc.mGamma = (float)atof(value);
+								printf("Gamma=%0.5f\n", gDesc.mGamma);
 							}
 							else if (strcmp(cmd, "ExplodeViewScale") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
 								gExplodeViewScale = (float)atof(value);
-								printf("ExplodeViewScale=%0.2f\n", gExplodeViewScale);
+								printf("ExplodeViewScale=%0.5f\n", gExplodeViewScale);
 							}
 							else if (strcmp(cmd, "ScaleInputMesh") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
 								gScaleInputMesh = (float)atof(value);
-								printf("ScaleInputMesh=%0.2f\n", gScaleInputMesh);
+								printf("ScaleInputMesh=%0.5f\n", gScaleInputMesh);
 								if (thacd)
 								{
 									thacd->release();

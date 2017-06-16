@@ -3,12 +3,14 @@
 #include "HACD.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 class TestHACDImpl : public TestHACD, public HACD::ICallback
 {
 public:
 	TestHACDImpl(void)
 	{
+		mMessage[0] = 0;
 		mHACD = HACD::HACD_API::create();
 	}
 
@@ -35,6 +37,11 @@ public:
 				if (h)
 				{
 					renderDebug->pushRenderState();
+
+					uint32_t cindex = (i % 20) + RENDER_DEBUG::DebugColors::Red;
+
+					uint32_t color = renderDebug->getDebugColor((RENDER_DEBUG::DebugColors::Enum)cindex);
+					renderDebug->setCurrentColor(color,0xFFFFFF);
 
 					float diff[3];
 
@@ -91,7 +98,9 @@ public:
 
 	virtual void ReportProgress(const char *msg, float progress) final
 	{
-		printf("HACD::%s(%0.2f)\n", msg, progress);
+		strncpy(mMessage, msg, 512);
+		(progress);
+		printf("%s\n", msg);
 	}
 
 	virtual bool Cancelled() final
@@ -105,6 +114,7 @@ public:
 		return mHACD ? mHACD->getHullCount() : 0;
 	}
 
+	char			mMessage[512];
 	HACD::HACD_API	*mHACD;
 };
 

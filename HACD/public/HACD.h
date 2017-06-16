@@ -53,7 +53,6 @@ public:
 	enum Mode
 	{
 		USE_ACD,		// Use approximate convex decomposition (recursive sub-division)
-		USE_HACD,		// Use standard hierarchical convex decomposition
 		USE_VHACD,		// Use voxelized hierarchical convex decomposition
 	};
 	
@@ -66,24 +65,20 @@ public:
 		}
 
 		Mode				mMode;
-		bool				mRemoveDuplicateVertices;
 		bool				mNormalizeInputMesh;
-		bool				mUseFastVersion;
+		bool				mRemoveDuplicateVertices;
 		uint32_t			mTriangleCount;
 		uint32_t			mVertexCount;
 		const float			*mVertices;
 		const uint32_t		*mIndices;
-		uint32_t			mMaxHullCount;
-		uint32_t			mMaxMergeHullCount;
 		uint32_t			mMaxHullVertices;
 		float				mConcavity;
-		float				mSmallClusterThreshold;
-		float				mBackFaceDistanceFactor;
+		float				mGamma;
 		uint32_t			mDecompositionDepth; // if using legacy ACD algorithm.
 		ICallback*			mCallback;
 		void init(void)
 		{
-			mMode = USE_HACD;
+			mMode = USE_VHACD;
 			mRemoveDuplicateVertices = true;
 			mDecompositionDepth = 0;
 			mNormalizeInputMesh = false;
@@ -91,13 +86,9 @@ public:
 			mVertexCount = 0;
 			mVertices = nullptr;
 			mIndices = nullptr;
-			mMaxHullCount = 256;
-			mMaxMergeHullCount = 256;
 			mMaxHullVertices = 64;
 			mConcavity = 0.2f;
-			mSmallClusterThreshold = 0.0f;
-			mBackFaceDistanceFactor = 0.2f;
-			mUseFastVersion = true;
+			mGamma = 0.0005f;
 			mCallback = nullptr;
 		}
 	};
