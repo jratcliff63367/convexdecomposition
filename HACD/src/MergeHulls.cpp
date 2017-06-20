@@ -1,5 +1,6 @@
 #include "MergeHulls.h"
-#include "ConvexHull.h"
+//#include "ConvexHull.h"
+#include "vhacdICHull.h"
 #include "SparseArray.h"
 #include <string.h>
 #include <math.h>
@@ -137,12 +138,15 @@ class CHull : public UANS::UserAllocated
 			float dx = mMax[0] - mMin[0];
 			float dy = mMax[1] - mMin[1];
 			float dz = mMax[2] - mMin[2];
+
 			dx*=0.1f; // inflate 1/10th on each edge
 			dy*=0.1f; // inflate 1/10th on each edge
 			dz*=0.1f; // inflate 1/10th on each edge
+
 			mMin[0]-=dx;
 			mMin[1]-=dy;
 			mMin[2]-=dz;
+
 			mMax[0]+=dx;
 			mMax[1]+=dy;
 			mMax[2]+=dz;
@@ -299,21 +303,34 @@ public:
 		dest+=a->mVertexCount*3;
 		memcpy(dest,b->mVertices,sizeof(float)*3*b->mVertexCount);
 
-		HullResult hresult;
-		HullLibrary hl;
-		HullDesc   desc;
-		desc.mVcount       = combinedVertexCount;
-		desc.mVertices     = combinedVertices;
-		desc.mVertexStride = sizeof(float)*3;
-		desc.mUseWuQuantizer = true;
-		HullError hret = hl.CreateConvexHull(desc,hresult);
-		HACD_ASSERT( hret == QE_OK );
-		if ( hret == QE_OK )
+		VHACD::ICHull hl;
+		double *dverts = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double) * 3);
+		for (uint32_t i = 0; i < combinedVertexCount; i++)
 		{
-			ret  = fm_computeMeshVolume( hresult.mOutputVertices, hresult.mNumTriangles, hresult.mIndices );
+			dverts[i * 3 + 0] = combinedVertices[i * 3 + 0];
+			dverts[i * 3 + 1] = combinedVertices[i * 3 + 1];
+			dverts[i * 3 + 2] = combinedVertices[i * 3 + 2];
 		}
+		hl.AddPoints((const VHACD::Vec3<double> *)dverts, combinedVertexCount);
+		VHACD::ICHullError err = hl.Process();
+		if (err == VHACD::ICHullErrorOK)
+		{
+			VHACD::TMMesh& mesh = hl.GetMesh();
+			uint32_t tcount = (uint32_t)mesh.GetNTriangles();
+			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
+			mesh.GetIFS((VHACD::Vec3<double> *)dverts, (VHACD::Vec3<int> *)indices);
+			uint32_t vcount = (uint32_t)mesh.GetNVertices();
+			for (uint32_t i = 0; i < vcount; i++)
+			{
+				combinedVertices[i * 3 + 0] = (float)dverts[i * 3 + 0];
+				combinedVertices[i * 3 + 1] = (float)dverts[i * 3 + 1];
+				combinedVertices[i * 3 + 2] = (float)dverts[i * 3 + 2];
+			}
+			ret = fm_computeMeshVolume(combinedVertices, tcount, indices);
+			HACD_FREE(indices);
+		}
+		HACD_FREE(dverts);
 		HACD_FREE(combinedVertices);
-		hl.ReleaseResult(hresult);
 		return ret;
 	}
 
@@ -327,22 +344,35 @@ public:
 		memcpy(dest,a->mVertices, sizeof(float)*3*a->mVertexCount);
 		dest+=a->mVertexCount*3;
 		memcpy(dest,b->mVertices,sizeof(float)*3*b->mVertexCount);
-		HullResult hresult;
-		HullLibrary hl;
-		HullDesc   desc;
-		desc.mVcount       = combinedVertexCount;
-		desc.mVertices     = combinedVertices;
-		desc.mVertexStride = sizeof(float)*3;
-		desc.mMaxVertices = mMaxHullVertices;
-		desc.mUseWuQuantizer = true;
-		HullError hret = hl.CreateConvexHull(desc,hresult);
-		HACD_ASSERT( hret == QE_OK );
-		if ( hret == QE_OK )
+
+		VHACD::ICHull hl;
+		double *dverts = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double) * 3);
+		for (uint32_t i = 0; i < combinedVertexCount; i++)
 		{
-			ret = HACD_NEW(CHull)(hresult.mNumOutputVertices, hresult.mOutputVertices, hresult.mNumTriangles, hresult.mIndices,mGuid++);
+			dverts[i * 3 + 0] = combinedVertices[i * 3 + 0];
+			dverts[i * 3 + 1] = combinedVertices[i * 3 + 1];
+			dverts[i * 3 + 2] = combinedVertices[i * 3 + 2];
 		}
+		hl.AddPoints((const VHACD::Vec3<double> *)dverts, combinedVertexCount);
+		VHACD::ICHullError err = hl.Process();
+		if (err == VHACD::ICHullErrorOK)
+		{
+			VHACD::TMMesh& mesh = hl.GetMesh();
+			uint32_t tcount = (uint32_t)mesh.GetNTriangles();
+			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
+			mesh.GetIFS((VHACD::Vec3<double> *)dverts, (VHACD::Vec3<int> *)indices);
+			uint32_t vcount = (uint32_t)mesh.GetNVertices();
+			for (uint32_t i = 0; i < vcount; i++)
+			{
+				combinedVertices[i * 3 + 0] = (float)dverts[i * 3 + 0];
+				combinedVertices[i * 3 + 1] = (float)dverts[i * 3 + 1];
+				combinedVertices[i * 3 + 2] = (float)dverts[i * 3 + 2];
+			}
+			ret = HACD_NEW(CHull)(vcount, combinedVertices, tcount, indices, mGuid++);
+			HACD_FREE(indices);
+		}
+		HACD_FREE(dverts);
 		HACD_FREE(combinedVertices);
-		hl.ReleaseResult(hresult);
 		return ret;
 	}
 
@@ -513,11 +543,11 @@ public:
 
 private:
 	TestedMap			*mHasBeenTested;
-	uint32_t				mGuid;
+	uint32_t			mGuid;
 	float				mTotalVolume;
 	float				mSmallClusterThreshold;
-	uint32_t				mMergeNumHulls;
-	uint32_t				mMaxHullVertices;
+	uint32_t			mMergeNumHulls;
+	uint32_t			mMaxHullVertices;
 	CHullVector			mChulls;
 };
 

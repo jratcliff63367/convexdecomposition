@@ -191,6 +191,7 @@ void createMenus(void)
 
 	gRenderDebug->sendRemoteCommand("SliderInt DecompositionDepth 10 1 20 DecompositionDepth");
 	gRenderDebug->sendRemoteCommand("SliderInt MaxHullVertices 32 8 512 MaxHullVertices");
+	gRenderDebug->sendRemoteCommand("SliderInt MaxConvexHulls 32 1 512 MaxConvexHulls");
 	gRenderDebug->sendRemoteCommand("Slider Concavity 0.001 0 0.1 Concavity");
 	gRenderDebug->sendRemoteCommand("Slider Gamma 0.0005 0 0.1 Gamma");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
