@@ -1,7 +1,5 @@
-
-
-#ifndef PX_FOUNDATION_VECTOR_H
-#define PX_FOUNDATION_VECTOR_H
+#ifndef SIMPLE_VECTOR_H
+#define SIMPLE_VECTOR_H
 
 #include "PlatformConfigHACD.h"
 

@@ -4,7 +4,7 @@
 
 #include "PlatformConfigHACD.h"
 #include "HACD.h"
-#include "PxVector.h"
+#include "SimpleVector.h"
 
 /*!
 **

@@ -132,21 +132,8 @@ public:
 
 	HullError CreateTriangleMesh(HullResult &answer,ConvexHullTriangleInterface *iface);
 private:
-	float ComputeNormal(float *n,const float *A,const float *B,const float *C);
-	void AddConvexTriangle(ConvexHullTriangleInterface *callback,const float *p1,const float *p2,const float *p3);
-
 	void BringOutYourDead(const float *verts,uint32_t vcount, float *overts,uint32_t &ocount,uint32_t *indices,uint32_t indexcount);
 
-	bool    NormalizeAndCleanupVertices(uint32_t svcount,
-							const float *svertices,
-							uint32_t stride,
-							uint32_t &vcount,       // output number of vertices
-							float *vertices,                 // location to store the results.
-							float  normalepsilon,
-							float *scale,
-							float *center,
-							uint32_t maxVertices,
-							bool useWuQuantizer);
 };
 
 }; // end of namespace HACD

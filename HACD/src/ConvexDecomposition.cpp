@@ -42,7 +42,7 @@
 
 #include "ConvexDecomposition.h"
 #include "ConvexHull.h"
-#include "PxVector.h"
+#include "SimpleVector.h"
 
 static const float EPSILON=0.0001f;
 
