@@ -195,13 +195,6 @@ void createMenus(void)
 	gRenderDebug->sendRemoteCommand("Slider Gamma 0.0005 0 0.1 Gamma");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
 
-	gRenderDebug->sendRemoteCommand("BeginGroup \"ACD Settings\"");	// Mark the beginning of a group of controls.
-	gRenderDebug->sendRemoteCommand("CheckBox UseACD true UseACD");
-	gRenderDebug->sendRemoteCommand("SliderInt ACD-DecompositionDepth 7 1 10 ACD-DecompositionDepth");
-	gRenderDebug->sendRemoteCommand("SliderInt MaxConvexHulls 32 1 512 MaxConvexHulls");
-	gRenderDebug->sendRemoteCommand("Slider MeshVolumePercent 0.8 0 1 MeshVolumePercent");
-	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
-
 	gRenderDebug->sendRemoteCommand("EndTab"); // End the tab called 'Test RenderDebug'
 }
 
@@ -357,21 +350,10 @@ int main(int argc,const char **argv)
 								printf("Performing Convex Decomposition\n");
 								thacd->decompose(gDesc);
 							}
-							else if (strcmp(cmd, "UseACD") == 0 )
-							{
-								const char *value = argv[1];
-								gDesc.mMode = strcmp(value, "true") == 0 ? HACD::HACD_API::USE_ACD : HACD::HACD_API::USE_VHACD;
-								printf("UseACD=%s\n", value);
-							}
 							else if (strcmp(cmd, "DecompositionDepth") == 0 && argc == 2 )
 							{
-								gDesc.mDecompositionDepthVHACD = atoi(argv[1]);
-								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepthVHACD);
-							}
-							else if (strcmp(cmd, "ACD-DecompositionDepth") == 0 && argc == 2)
-							{
-								gDesc.mDecompositionDepthACD = atoi(argv[1]);
-								printf("ACD-DecompositionDepth=%d\n", gDesc.mDecompositionDepthACD);
+								gDesc.mDecompositionDepth = atoi(argv[1]);
+								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepth);
 							}
 							else if (strcmp(cmd, "MaxHullVertices") == 0 && argc == 2)
 							{
@@ -400,12 +382,6 @@ int main(int argc,const char **argv)
 								const char *value = argv[1];
 								gDesc.mConcavity = (float)atof(value);
 								printf("Concavity=%0.5f\n", gDesc.mConcavity);
-							}
-							else if (strcmp(cmd, "MeshVolumePercent") == 0 && argc == 2)
-							{
-								const char *value = argv[1];
-								gDesc.mMeshVolumePercent = (float)atof(value);
-								printf("MeshVolumePercent=%0.5f\n", gDesc.mMeshVolumePercent);
 							}
 							else if (strcmp(cmd, "Gamma") == 0 && argc == 2)
 							{

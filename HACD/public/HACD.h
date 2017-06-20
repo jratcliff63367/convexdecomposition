@@ -50,12 +50,6 @@ public:
 class HACD_API
 {
 public:
-	enum Mode
-	{
-		USE_ACD,		// Use approximate convex decomposition (recursive sub-division)
-		USE_VHACD,		// Use voxelized hierarchical convex decomposition
-	};
-	
 	class Desc
 	{
 	public:
@@ -64,7 +58,6 @@ public:
 			init();
 		}
 
-		Mode				mMode;
 		uint32_t			mTriangleCount;
 		uint32_t			mVertexCount;
 		const float			*mVertices;
@@ -72,17 +65,13 @@ public:
 		uint32_t			mMaxHullVertices;
 		float				mConcavity;
 		float				mGamma;
-		float				mMeshVolumePercent;
-		uint32_t			mDecompositionDepthVHACD; // 
-		uint32_t			mDecompositionDepthACD; // 
+		uint32_t			mDecompositionDepth; // 
 		ICallback*			mCallback;
 		uint32_t			mMaxConvexHulls;	// Maximum number of convex hulls
 		void init(void)
 		{
-			mMode = USE_VHACD;
 			mMaxConvexHulls = 512;
-			mDecompositionDepthVHACD = 0;
-			mDecompositionDepthACD = 5;
+			mDecompositionDepth = 20;
 			mTriangleCount = 0;
 			mVertexCount = 0;
 			mVertices = nullptr;
@@ -91,7 +80,6 @@ public:
 			mConcavity = 0.2f;
 			mGamma = 0.0005f;
 			mCallback = nullptr;
-			mMeshVolumePercent = 0.9f;
 		}
 	};
 
