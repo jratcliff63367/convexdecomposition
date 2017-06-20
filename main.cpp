@@ -191,8 +191,15 @@ void createMenus(void)
 
 	gRenderDebug->sendRemoteCommand("SliderInt DecompositionDepth 10 1 20 DecompositionDepth");
 	gRenderDebug->sendRemoteCommand("SliderInt MaxHullVertices 32 8 512 MaxHullVertices");
-	gRenderDebug->sendRemoteCommand("Slider Concavity 0.2 0 4 Concavity");
+	gRenderDebug->sendRemoteCommand("Slider Concavity 0.001 0 0.1 Concavity");
 	gRenderDebug->sendRemoteCommand("Slider Gamma 0.0005 0 0.1 Gamma");
+	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
+
+	gRenderDebug->sendRemoteCommand("BeginGroup \"ACD Settings\"");	// Mark the beginning of a group of controls.
+	gRenderDebug->sendRemoteCommand("CheckBox UseACD true UseACD");
+	gRenderDebug->sendRemoteCommand("SliderInt ACD-DecompositionDepth 7 1 10 ACD-DecompositionDepth");
+	gRenderDebug->sendRemoteCommand("SliderInt MaxConvexHulls 32 1 512 MaxConvexHulls");
+	gRenderDebug->sendRemoteCommand("Slider MeshVolumePercent 0.8 0 1 MeshVolumePercent");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'HACD settings'
 
 	gRenderDebug->sendRemoteCommand("BeginGroup \"Pre-process Options\"");	// Mark the beginning of a group of controls.
@@ -351,20 +358,36 @@ int main(int argc,const char **argv)
 							{
 								solid = solid ? false : true;
 							}
-							else if (strcmp(cmd, "decomp") == 0 && thacd )
+							else if (strcmp(cmd, "decomp") == 0 && thacd)
 							{
-								printf("Performing Convex Decomposition at depth: %d\n", gDesc.mDecompositionDepth);
+								printf("Performing Convex Decomposition\n");
 								thacd->decompose(gDesc);
+							}
+							else if (strcmp(cmd, "UseACD") == 0 )
+							{
+								const char *value = argv[1];
+								gDesc.mMode = strcmp(value, "true") == 0 ? HACD::HACD_API::USE_ACD : HACD::HACD_API::USE_VHACD;
+								printf("UseACD=%s\n", value);
 							}
 							else if (strcmp(cmd, "DecompositionDepth") == 0 && argc == 2 )
 							{
-								gDesc.mDecompositionDepth = atoi(argv[1]);
-								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepth);
+								gDesc.mDecompositionDepthVHACD = atoi(argv[1]);
+								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepthVHACD);
+							}
+							else if (strcmp(cmd, "ACD-DecompositionDepth") == 0 && argc == 2)
+							{
+								gDesc.mDecompositionDepthACD = atoi(argv[1]);
+								printf("ACD-DecompositionDepth=%d\n", gDesc.mDecompositionDepthACD);
 							}
 							else if (strcmp(cmd, "MaxHullVertices") == 0 && argc == 2)
 							{
 								gDesc.mMaxHullVertices = atoi(argv[1]);
 								printf("MaxHullVertices=%d\n", gDesc.mMaxHullVertices);
+							}
+							else if (strcmp(cmd, "MaxConvexHulls") == 0 && argc == 2)
+							{
+								gDesc.mMaxConvexHulls = atoi(argv[1]);
+								printf("MaxConvexHulls=%d\n", gDesc.mMaxConvexHulls);
 							}
 							else if (strcmp(cmd, "ShowSourceMesh") == 0 && argc == 2)
 							{
@@ -377,19 +400,6 @@ int main(int argc,const char **argv)
 								const char *value = argv[1];
 								gShowConvexDecomposition = strcmp(value, "true") == 0;
 								printf("ShowConvexDecomposition=%s\n", value);
-							}
-							else if (strcmp(cmd, "Mode") == 0 && argc == 2)
-							{
-								const char *value = argv[1];
-								if (strcmp(value, "ACD") == 0)
-								{
-									gDesc.mMode = HACD::HACD_API::USE_ACD;
-								}
-								else if (strcmp(value, "VHACD") == 0)
-								{
-									gDesc.mMode = HACD::HACD_API::USE_VHACD;
-								}
-								printf("Mode=%s\n", value);
 							}
 							else if (strcmp(cmd, "NormalizeInputMesh") == 0 && argc == 2)
 							{
@@ -408,6 +418,12 @@ int main(int argc,const char **argv)
 								const char *value = argv[1];
 								gDesc.mConcavity = (float)atof(value);
 								printf("Concavity=%0.5f\n", gDesc.mConcavity);
+							}
+							else if (strcmp(cmd, "MeshVolumePercent") == 0 && argc == 2)
+							{
+								const char *value = argv[1];
+								gDesc.mMeshVolumePercent = (float)atof(value);
+								printf("MeshVolumePercent=%0.5f\n", gDesc.mMeshVolumePercent);
 							}
 							else if (strcmp(cmd, "Gamma") == 0 && argc == 2)
 							{

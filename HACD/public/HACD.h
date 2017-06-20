@@ -74,13 +74,18 @@ public:
 		uint32_t			mMaxHullVertices;
 		float				mConcavity;
 		float				mGamma;
-		uint32_t			mDecompositionDepth; // if using legacy ACD algorithm.
+		float				mMeshVolumePercent;
+		uint32_t			mDecompositionDepthVHACD; // 
+		uint32_t			mDecompositionDepthACD; // 
 		ICallback*			mCallback;
+		uint32_t			mMaxConvexHulls;	// Maximum number of convex hulls
 		void init(void)
 		{
 			mMode = USE_VHACD;
+			mMaxConvexHulls = 512;
 			mRemoveDuplicateVertices = true;
-			mDecompositionDepth = 0;
+			mDecompositionDepthVHACD = 0;
+			mDecompositionDepthACD = 5;
 			mNormalizeInputMesh = false;
 			mTriangleCount = 0;
 			mVertexCount = 0;
@@ -90,6 +95,7 @@ public:
 			mConcavity = 0.2f;
 			mGamma = 0.0005f;
 			mCallback = nullptr;
+			mMeshVolumePercent = 0.9f;
 		}
 	};
 

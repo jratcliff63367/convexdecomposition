@@ -38,7 +38,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include "PlatformConfigHACD.h"
-
+#include "MergeHulls.h"
+#include "ConvexDecomposition.h"
 
 using namespace hacd;
 
@@ -341,86 +342,201 @@ public:
 		float *normalizeInputVertices = nullptr;
 		if (desc.mNormalizeInputMesh)
 		{
-
 			normalizeInputMesh(desc, inputScale, inputCenter);
 			normalizeInputVertices = (float *)desc.mVertices;
 		}
 		if ( desc.mVertexCount )
 		{
-			VHACD::IVHACD *vhacd = VHACD::CreateVHACD();
-			if (vhacd)
+			if (desc.mMode == HACD::HACD_API::USE_ACD)
 			{
-				VHACD::IVHACD::Parameters p;
-				p.m_concavity			= desc.mConcavity;
-				p.m_gamma = desc.mGamma;
-				p.m_depth = desc.mDecompositionDepth;
-				p.m_maxNumVerticesPerCH = desc.mMaxHullVertices;
-				p.m_callback = this;
-				p.m_logger = this;
+				CONVEX_DECOMPOSITION::ConvexDecomposition *cd = CONVEX_DECOMPOSITION::createConvexDecomposition();
+				CONVEX_DECOMPOSITION::DecompDesc dcompDesc;
+				dcompDesc.mIndices = desc.mIndices;
+				dcompDesc.mVertices = desc.mVertices;
+				dcompDesc.mTcount = desc.mTriangleCount;
+				dcompDesc.mVcount = desc.mVertexCount;
+				dcompDesc.mMaxVertices = desc.mMaxHullVertices;
+				dcompDesc.mDepth = desc.mDecompositionDepthACD;
+				dcompDesc.mCpercent = desc.mConcavity * 10;
+				dcompDesc.mMeshVolumePercent = desc.mMeshVolumePercent;
+				dcompDesc.mCallback = desc.mCallback;
 
-				bool ok = vhacd->Compute(desc.mVertices, 3, desc.mVertexCount, (const int *const )desc.mIndices, 3, desc.mTriangleCount, p);
-
-				if (ok)
+				if (desc.mMaxConvexHulls == 1) // if we only want a single hull output then set the decomposition depth to zero!
 				{
-					ret = vhacd->GetNConvexHulls();
-					mHullCount = ret;
-					mHulls = new Hull[mHullCount];
-
-					for (unsigned int i = 0; i < ret; i++)
-					{
-						VHACD::IVHACD::ConvexHull vhull;
-						vhacd->GetConvexHull(i, vhull);
-						Hull h;
-						h.mVertexCount = vhull.m_nPoints;
-						h.mVertices = (float *)HACD_ALLOC(sizeof(float) * 3 * h.mVertexCount);
-
-						Vec3 recipInputScale;
-						recipInputScale.x = 1.0f / inputScale.x;
-						recipInputScale.y = 1.0f / inputScale.y;
-						recipInputScale.z = 1.0f / inputScale.z;
-
-						for (uint32_t j = 0; j < h.mVertexCount; j++)
-						{
-							float *dest = (float *)&h.mVertices[j * 3];
-
-							dest[0] = (float)vhull.m_points[j * 3 + 0];
-							dest[1] = (float)vhull.m_points[j * 3 + 1];
-							dest[2] = (float)vhull.m_points[j * 3 + 2];
-
-							dest[0] = (dest[0] * recipInputScale.x) + inputCenter.x;
-							dest[1] = (dest[1] * recipInputScale.y) + inputCenter.y;
-							dest[2] = (dest[2] * recipInputScale.z) + inputCenter.z;
-
-						}
-
-						h.mTriangleCount = vhull.m_nTriangles;
-						uint32_t *destIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
-						h.mIndices = destIndices;
-
-						for (uint32_t j = 0; j < h.mTriangleCount; j++)
-						{
-							destIndices[0] = vhull.m_triangles[j * 3 + 0];
-							destIndices[1] = vhull.m_triangles[j * 3 + 1];
-							destIndices[2] = vhull.m_triangles[j * 3 + 2];
-							destIndices += 3;
-						}
-
-						h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
-						fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
-
-						mHulls[i] = h;
-					}
+					dcompDesc.mDepth = 0;
 				}
 
-				vhacd->Release();
-			}
+				ret = cd->performConvexDecomposition(dcompDesc);
 
-			HACD_FREE(normalizeInputVertices);
-			HACD_FREE(tempPositions);
-			HACD_FREE(tempIndices);
+				releaseHACD();
+				mHullCount = ret;
+				mHulls = new Hull[mHullCount];
+
+				Vec3 recipInputScale;
+				recipInputScale.x = 1.0f / inputScale.x;
+				recipInputScale.y = 1.0f / inputScale.y;
+				recipInputScale.z = 1.0f / inputScale.z;
+
+				for (uint32_t i = 0; i < ret; i++)
+				{
+					CONVEX_DECOMPOSITION::ConvexResult *result = cd->getConvexResult(i, true);
+					Hull h;
+
+					h.mVertices = result->mHullVertices;
+					h.mVertexCount = result->mHullVcount;
+
+					for (uint32_t j = 0; j < h.mVertexCount; j++)
+					{
+						float *dest = (float *)&h.mVertices[j * 3];
+
+						dest[0] = (dest[0] * recipInputScale.x) + inputCenter.x;
+						dest[1] = (dest[1] * recipInputScale.y) + inputCenter.y;
+						dest[2] = (dest[2] * recipInputScale.z) + inputCenter.z;
+
+					}
+
+					h.mIndices = result->mHullIndices;
+					h.mTriangleCount = result->mHullTcount;
+					h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
+					fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
+					mHulls[i] = h;
+				}
+			}
+			else
+			{
+				VHACD::IVHACD *vhacd = VHACD::CreateVHACD();
+				if (vhacd)
+				{
+					VHACD::IVHACD::Parameters p;
+					p.m_concavity = desc.mConcavity;
+					p.m_gamma = desc.mGamma;
+					p.m_depth = desc.mDecompositionDepthVHACD;
+					p.m_maxNumVerticesPerCH = desc.mMaxHullVertices;
+					p.m_callback = this;
+					p.m_logger = this;
+
+					bool ok = vhacd->Compute(desc.mVertices, 3, desc.mVertexCount, (const int *const)desc.mIndices, 3, desc.mTriangleCount, p);
+
+					if (ok)
+					{
+						ret = vhacd->GetNConvexHulls();
+						mHullCount = ret;
+						mHulls = new Hull[mHullCount];
+
+						for (unsigned int i = 0; i < ret; i++)
+						{
+							VHACD::IVHACD::ConvexHull vhull;
+							vhacd->GetConvexHull(i, vhull);
+							Hull h;
+							h.mVertexCount = vhull.m_nPoints;
+							h.mVertices = (float *)HACD_ALLOC(sizeof(float) * 3 * h.mVertexCount);
+
+							Vec3 recipInputScale;
+							recipInputScale.x = 1.0f / inputScale.x;
+							recipInputScale.y = 1.0f / inputScale.y;
+							recipInputScale.z = 1.0f / inputScale.z;
+
+							for (uint32_t j = 0; j < h.mVertexCount; j++)
+							{
+								float *dest = (float *)&h.mVertices[j * 3];
+
+								dest[0] = (float)vhull.m_points[j * 3 + 0];
+								dest[1] = (float)vhull.m_points[j * 3 + 1];
+								dest[2] = (float)vhull.m_points[j * 3 + 2];
+
+								dest[0] = (dest[0] * recipInputScale.x) + inputCenter.x;
+								dest[1] = (dest[1] * recipInputScale.y) + inputCenter.y;
+								dest[2] = (dest[2] * recipInputScale.z) + inputCenter.z;
+
+							}
+
+							h.mTriangleCount = vhull.m_nTriangles;
+							uint32_t *destIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
+							h.mIndices = destIndices;
+
+							for (uint32_t j = 0; j < h.mTriangleCount; j++)
+							{
+								destIndices[0] = vhull.m_triangles[j * 3 + 0];
+								destIndices[1] = vhull.m_triangles[j * 3 + 1];
+								destIndices[2] = vhull.m_triangles[j * 3 + 2];
+								destIndices += 3;
+							}
+
+							h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
+							fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
+
+							mHulls[i] = h;
+						}
+					}
+
+					vhacd->Release();
+				}
+			}
 		}
 
 		ret = (uint32_t)mHullCount;
+
+		if (ret && ret > desc.mMaxConvexHulls)
+		{
+			MergeHullsInterface *mhi = createMergeHullsInterface();
+			if (mhi)
+			{
+				if (desc.mCallback)
+				{
+					desc.mCallback->ReportProgress("Gathering Input Hulls", 1);
+				}
+
+				MergeHullVector inputHulls;
+				MergeHullVector outputHulls;
+				for (uint32_t i = 0; i < ret; i++)
+				{
+					Hull &h = mHulls[i];
+					MergeHull mh;
+					mh.mTriangleCount = h.mTriangleCount;
+					mh.mVertexCount = h.mVertexCount;
+					mh.mVertices = h.mVertices;
+					mh.mIndices = h.mIndices;
+					inputHulls.push_back(mh);
+				}
+				ret = mhi->mergeHulls(inputHulls, outputHulls, desc.mMaxConvexHulls, 0.01f + FLT_EPSILON, desc.mMaxHullVertices, desc.mCallback);
+
+				releaseHACD();
+
+				if (desc.mCallback)
+				{
+					desc.mCallback->ReportProgress("Gathering Merged Hulls", 1);
+				}
+
+				mHullCount = outputHulls.size();
+				mHulls = new Hull[mHullCount];
+
+				for (uint32_t i = 0; i < outputHulls.size(); i++)
+				{
+					Hull h;
+					const MergeHull &mh = outputHulls[i];
+					h.mTriangleCount = mh.mTriangleCount;
+					h.mVertexCount = mh.mVertexCount;
+					h.mIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
+					h.mVertices = (float *)HACD_ALLOC(sizeof(float) * 3 * h.mVertexCount);
+					memcpy((uint32_t *)h.mIndices, mh.mIndices, sizeof(uint32_t) * 3 * h.mTriangleCount);
+					memcpy((float *)h.mVertices, mh.mVertices, sizeof(float) * 3 * h.mVertexCount);
+
+					h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
+					fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
+
+					mHulls[i] = h;
+				}
+
+
+
+				mhi->release();
+			}
+		}
+
+		HACD_FREE(normalizeInputVertices);
+		HACD_FREE(tempPositions);
+		HACD_FREE(tempIndices);
+
 
 		return ret;
 	}
