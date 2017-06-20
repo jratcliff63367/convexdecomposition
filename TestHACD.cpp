@@ -19,11 +19,11 @@ public:
 		mHACD->release();
 	}
 
-	void getExplodePosition(const float source[3], float dest[3], const float diff[3],const float center[3])
+	void getExplodePosition(const double source[3], float dest[3], const double diff[3],const float center[3])
 	{
-		dest[0] = source[0] + diff[0] + center[0];
-		dest[1] = source[1] + diff[1] + center[1];
-		dest[2] = source[2] + diff[2] + center[2];
+		dest[0] = float(source[0] + diff[0] + center[0]);
+		dest[1] = float(source[1] + diff[1] + center[1]);
+		dest[2] = float(source[2] + diff[2] + center[2]);
 	}
 
 	virtual void render(RENDER_DEBUG::RenderDebug *renderDebug, float explodeViewScale,const float center[3]) final
@@ -43,7 +43,7 @@ public:
 					uint32_t color = renderDebug->getDebugColor((RENDER_DEBUG::DebugColors::Enum)cindex);
 					renderDebug->setCurrentColor(color,0xFFFFFF);
 
-					float diff[3];
+					double diff[3];
 
 					diff[0] = h->mCenter[0] - center[0];
 					diff[1] = h->mCenter[1] - center[1];
@@ -63,9 +63,9 @@ public:
 						uint32_t i2 = h->mIndices[i * 3 + 1];
 						uint32_t i3 = h->mIndices[i * 3 + 2];
 
-						const float *p1 = &h->mVertices[i1 * 3];
-						const float *p2 = &h->mVertices[i2 * 3];
-						const float *p3 = &h->mVertices[i3 * 3];
+						const double *p1 = &h->mVertices[i1 * 3];
+						const double *p2 = &h->mVertices[i2 * 3];
+						const double *p3 = &h->mVertices[i3 * 3];
 
 						float v1[3];
 						float v2[3];

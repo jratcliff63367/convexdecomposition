@@ -46,8 +46,8 @@ class MergeHull
 public:
 	uint32_t			mTriangleCount;
 	uint32_t			mVertexCount;
-	const float	*mVertices;
-	const uint32_t	*mIndices;
+	const double		*mVertices;
+	const uint32_t		*mIndices;
 };
 
 typedef hacd::vector< MergeHull > MergeHullVector;
@@ -59,7 +59,7 @@ public:
 	virtual uint32_t mergeHulls(const MergeHullVector &inputHulls,
 									MergeHullVector &outputHulls,
 									uint32_t	mergeHullCount,
-									float smallClusterThreshold,
+									double smallClusterThreshold,
 									uint32_t maxHullVertices,
 									HACD::ICallback *callback) = 0;
 

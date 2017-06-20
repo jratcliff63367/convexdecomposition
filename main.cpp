@@ -237,6 +237,9 @@ int main(int argc,const char **argv)
 			{
 				TestHACD *thacd = TestHACD::create();
 
+
+				double *meshVertices = nullptr;
+
 				printf("Found: %d triangles.\r\n", sourceMesh.mTriCount );
 
 				gRenderDebug->addToCurrentState(RENDER_DEBUG::DebugRenderState::CenterText);
@@ -266,8 +269,16 @@ int main(int argc,const char **argv)
 							sourceMesh.deepCopyScale(w, gScaleInputMesh);
 							gDesc.mVertexCount = w.mVertexCount;
 							gDesc.mTriangleCount = w.mTriCount;
-							gDesc.mVertices = w.mVertices;
+							delete[]meshVertices;
+							meshVertices = new double[w.mVertexCount * 3];
+							gDesc.mVertices = meshVertices;
 							gDesc.mIndices = w.mIndices;
+							for (uint32_t i = 0; i < w.mVertexCount; i++)
+							{
+								meshVertices[i * 3 + 0] = w.mVertices[i * 3 + 0];
+								meshVertices[i * 3 + 1] = w.mVertices[i * 3 + 1];
+								meshVertices[i * 3 + 2] = w.mVertices[i * 3 + 2];
+							}
 
 							meshId = gRenderDebug->getMeshId();
 							{
@@ -449,6 +460,7 @@ int main(int argc,const char **argv)
 				{
 					thacd->release();
 				}
+				delete[]meshVertices;
 			}
 			gRenderDebug->release();
 		}

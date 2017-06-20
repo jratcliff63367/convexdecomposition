@@ -59,21 +59,21 @@ inline int32_t stringFormat(char *dest,uint32_t size, const char *format, ...)
 	return ret;
 }
 
-inline float det(const float *p1,const float *p2,const float *p3)
+inline double det(const double *p1,const double *p2,const double *p3)
 {
 	return  p1[0]*p2[1]*p3[2] + p2[0]*p3[1]*p1[2] + p3[0]*p1[1]*p2[2] -p1[0]*p3[1]*p2[2] - p2[0]*p1[1]*p3[2] - p3[0]*p2[1]*p1[2];
 }
 
 
-static float  fm_computeMeshVolume(const float *vertices,uint32_t tcount,const uint32_t *indices)
+static double  fm_computeMeshVolume(const double *vertices,uint32_t tcount,const uint32_t *indices)
 {
-	float volume = 0;
+	double volume = 0;
 
 	for (uint32_t i=0; i<tcount; i++,indices+=3)
 	{
-		const float *p1 = &vertices[ indices[0]*3 ];
-		const float *p2 = &vertices[ indices[1]*3 ];
-		const float *p3 = &vertices[ indices[2]*3 ];
+		const double *p1 = &vertices[ indices[0]*3 ];
+		const double *p2 = &vertices[ indices[1]*3 ];
+		const double *p3 = &vertices[ indices[2]*3 ];
 		volume+=det(p1,p2,p3); // compute the volume of the tetrahedran relative to the origin.
 	}
 
@@ -83,10 +83,10 @@ static float  fm_computeMeshVolume(const float *vertices,uint32_t tcount,const u
 	return volume;
 }
 
-static void  fm_computCenter(uint32_t vcount,const float *vertices,float center[3])
+static void  fm_computCenter(uint32_t vcount,const double *vertices,double center[3])
 {
-	float bmin[3];
-	float bmax[3];
+	double bmin[3];
+	double bmax[3];
 
 	bmin[0] = vertices[0];
 	bmin[1] = vertices[1];
@@ -98,7 +98,7 @@ static void  fm_computCenter(uint32_t vcount,const float *vertices,float center[
 
 	for (uint32_t i = 1; i < vcount; i++)
 	{
-		const float *v = &vertices[i * 3];
+		const double *v = &vertices[i * 3];
 
 		if (v[0] < bmin[0]) bmin[0] = v[0];
 		if (v[1] < bmin[1]) bmin[1] = v[1];
@@ -127,15 +127,15 @@ public:
 		{
 
 		}
-		Vec3(float _x,float _y,float _z)
+		Vec3(double _x,double _y,double _z)
 		{
 			x = _x;
 			y = _y;
 			z = _z;
 		}
-		float x;
-		float y;
-		float z;
+		double x;
+		double y;
+		double z;
 	};
 
 	MyHACD_API(void)
@@ -212,15 +212,13 @@ public:
 						vhacd->GetConvexHull(i, vhull);
 						Hull h;
 						h.mVertexCount = vhull.m_nPoints;
-						h.mVertices = (float *)HACD_ALLOC(sizeof(float) * 3 * h.mVertexCount);
-
+						h.mVertices = (double *)HACD_ALLOC(sizeof(double) * 3 * h.mVertexCount);
 						for (uint32_t j = 0; j < h.mVertexCount; j++)
 						{
-							float *dest = (float *)&h.mVertices[j * 3];
-
-							dest[0] = (float)vhull.m_points[j * 3 + 0];
-							dest[1] = (float)vhull.m_points[j * 3 + 1];
-							dest[2] = (float)vhull.m_points[j * 3 + 2];
+							double *dest = (double *)&h.mVertices[j * 3];
+							dest[0] = (double)vhull.m_points[j * 3 + 0];
+							dest[1] = (double)vhull.m_points[j * 3 + 1];
+							dest[2] = (double)vhull.m_points[j * 3 + 2];
 						}
 
 						h.mTriangleCount = vhull.m_nTriangles;
@@ -289,9 +287,9 @@ public:
 					h.mTriangleCount = mh.mTriangleCount;
 					h.mVertexCount = mh.mVertexCount;
 					h.mIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
-					h.mVertices = (float *)HACD_ALLOC(sizeof(float) * 3 * h.mVertexCount);
+					h.mVertices = (double *)HACD_ALLOC(sizeof(double) * 3 * h.mVertexCount);
 					memcpy((uint32_t *)h.mIndices, mh.mIndices, sizeof(uint32_t) * 3 * h.mTriangleCount);
-					memcpy((float *)h.mVertices, mh.mVertices, sizeof(float) * 3 * h.mVertexCount);
+					memcpy((double *)h.mVertices, mh.mVertices, sizeof(double) * 3 * h.mVertexCount);
 
 					h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
 					fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);

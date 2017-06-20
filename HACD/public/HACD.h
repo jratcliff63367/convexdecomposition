@@ -60,11 +60,11 @@ public:
 
 		uint32_t			mTriangleCount;
 		uint32_t			mVertexCount;
-		const float			*mVertices;
+		const double		*mVertices;
 		const uint32_t		*mIndices;
 		uint32_t			mMaxHullVertices;
-		float				mConcavity;
-		float				mGamma;
+		double				mConcavity;
+		double				mGamma;
 		uint32_t			mDecompositionDepth; // 
 		ICallback*			mCallback;
 		uint32_t			mMaxConvexHulls;	// Maximum number of convex hulls
@@ -88,10 +88,10 @@ public:
 	public:
 		uint32_t			mTriangleCount;
 		uint32_t			mVertexCount;
-		const float			*mVertices;
+		const double		*mVertices;
 		const uint32_t		*mIndices;
-		float				mCenter[3];		// center of this convex hull
-		float				mVolume;
+		double				mCenter[3];		// center of this convex hull
+		double				mVolume;
 	};
 
 	static HACD_API * create(void);

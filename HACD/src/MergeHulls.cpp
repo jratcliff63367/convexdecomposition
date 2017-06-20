@@ -43,11 +43,11 @@ using namespace hacd;
 namespace HACD
 {
 
-typedef SparseArray< float > TestedMap;
+typedef SparseArray< double > TestedMap;
 
 static int gCombineCount=0;
 
-static float fm_computeBestFitAABB(uint32_t vcount,const float *points,uint32_t pstride,float *bmin,float *bmax) // returns the diagonal distance
+static double fm_computeBestFitAABB(uint32_t vcount,const double *points,uint32_t pstride,double *bmin,double *bmax) // returns the diagonal distance
 {
 
 	const uint8_t *source = (const uint8_t *) points;
@@ -64,7 +64,7 @@ static float fm_computeBestFitAABB(uint32_t vcount,const float *points,uint32_t 
 	for (uint32_t i=1; i<vcount; i++)
 	{
 		source+=pstride;
-		const float *p = (const float *) source;
+		const double *p = (const double *) source;
 
 		if ( p[0] < bmin[0] ) bmin[0] = p[0];
 		if ( p[1] < bmin[1] ) bmin[1] = p[1];
@@ -76,18 +76,18 @@ static float fm_computeBestFitAABB(uint32_t vcount,const float *points,uint32_t 
 
 	}
 
-	float dx = bmax[0] - bmin[0];
-	float dy = bmax[1] - bmin[1];
-	float dz = bmax[2] - bmin[2];
+	double dx = bmax[0] - bmin[0];
+	double dy = bmax[1] - bmin[1];
+	double dz = bmax[2] - bmin[2];
 
-	return (float) ::sqrtf( dx*dx + dy*dy + dz*dz );
+	return sqrt( dx*dx + dy*dy + dz*dz );
 
 }
 
 
 
 
-static bool fm_intersectAABB(const float *bmin1,const float *bmax1,const float *bmin2,const float *bmax2)
+static bool fm_intersectAABB(const double *bmin1,const double *bmax1,const double *bmin2,const double *bmax2)
 {
 	if ((bmin1[0] > bmax2[0]) || (bmin2[0] > bmax1[0])) return false;
 	if ((bmin1[1] > bmax2[1]) || (bmin2[1] > bmax1[1])) return false;
@@ -96,20 +96,20 @@ static bool fm_intersectAABB(const float *bmin1,const float *bmax1,const float *
 }
 
 
-static HACD_INLINE float det(const float *p1,const float *p2,const float *p3)
+static HACD_INLINE double det(const double *p1,const double *p2,const double *p3)
 {
 	return  p1[0]*p2[1]*p3[2] + p2[0]*p3[1]*p1[2] + p3[0]*p1[1]*p2[2] -p1[0]*p3[1]*p2[2] - p2[0]*p1[1]*p3[2] - p3[0]*p2[1]*p1[2];
 }
 
 
-static float  fm_computeMeshVolume(const float *vertices,uint32_t tcount,const uint32_t *indices)
+static double  fm_computeMeshVolume(const double *vertices,uint32_t tcount,const uint32_t *indices)
 {
-	float volume = 0;
+	double volume = 0;
 	for (uint32_t i=0; i<tcount; i++,indices+=3)
 	{
-		const float *p1 = &vertices[ indices[0]*3 ];
-		const float *p2 = &vertices[ indices[1]*3 ];
-		const float *p3 = &vertices[ indices[2]*3 ];
+		const double *p1 = &vertices[ indices[0]*3 ];
+		const double *p2 = &vertices[ indices[1]*3 ];
+		const double *p3 = &vertices[ indices[2]*3 ];
 		volume+=det(p1,p2,p3); // compute the volume of the tetrahedran relative to the origin.
 	}
 
@@ -124,20 +124,20 @@ static float  fm_computeMeshVolume(const float *vertices,uint32_t tcount,const u
 class CHull : public UANS::UserAllocated
 	{
 	public:
-		CHull(uint32_t vcount,const float *vertices,uint32_t tcount,const uint32_t *indices,uint32_t guid)
+		CHull(uint32_t vcount,const double *vertices,uint32_t tcount,const uint32_t *indices,uint32_t guid)
 		{
 			mGuid = guid;
 			mVertexCount = vcount;
 			mTriangleCount = tcount;
-			mVertices = (float *)HACD_ALLOC(sizeof(float)*3*vcount);
-			memcpy(mVertices,vertices,sizeof(float)*3*vcount);
+			mVertices = (double *)HACD_ALLOC(sizeof(double)*3*vcount);
+			memcpy(mVertices,vertices,sizeof(double)*3*vcount);
 			mIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t)*3*tcount);
 			memcpy(mIndices,indices,sizeof(uint32_t)*3*tcount);
 			mVolume = fm_computeMeshVolume( mVertices, mTriangleCount, mIndices);
-			mDiagonal = fm_computeBestFitAABB( mVertexCount, mVertices, sizeof(float)*3, mMin, mMax );
-			float dx = mMax[0] - mMin[0];
-			float dy = mMax[1] - mMin[1];
-			float dz = mMax[2] - mMin[2];
+			mDiagonal = fm_computeBestFitAABB( mVertexCount, mVertices, sizeof(double)*3, mMin, mMax );
+			double dx = mMax[0] - mMin[0];
+			double dy = mMax[1] - mMin[1];
+			double dz = mMax[2] - mMin[2];
 
 			dx*=0.1f; // inflate 1/10th on each edge
 			dy*=0.1f; // inflate 1/10th on each edge
@@ -164,13 +164,13 @@ class CHull : public UANS::UserAllocated
 		}
 
 		uint32_t			mGuid;
-		float		mMin[3];
-		float		mMax[3];
-		float		mVolume;
-		float		mDiagonal; // long edge..
+		double		mMin[3];
+		double		mMax[3];
+		double		mVolume;
+		double		mDiagonal; // long edge..
 		uint32_t			mVertexCount;
 		uint32_t			mTriangleCount;
-		float			*mVertices;
+		double			*mVertices;
 		uint32_t			*mIndices;
 	};
 
@@ -206,7 +206,7 @@ public:
 	virtual uint32_t mergeHulls(const MergeHullVector &inputHulls,
 		MergeHullVector &outputHulls,
 		uint32_t mergeHullCount,
-		float smallClusterThreshold,
+		double smallClusterThreshold,
 		uint32_t maxHullVertices,
 		HACD::ICallback *callback)
 	{
@@ -227,8 +227,8 @@ public:
 			mTotalVolume+=ch->mVolume;
 			if ( callback )
 			{
-				float fraction = (float)i / (float)inputHulls.size();
-				callback->ReportProgress("Gathering Hulls To Merge", fraction );
+				double fraction = (double)i / (double)inputHulls.size();
+				callback->ReportProgress("Gathering Hulls To Merge", (float)fraction );
 			}
 		}
 
@@ -240,8 +240,8 @@ public:
 		{
 			if ( callback )
 			{
-				float fraction = (float)mergeIndex / (float)mergeCount;
-				callback->ReportProgress("Merging", fraction );
+				double fraction = (double)mergeIndex / (double)mergeCount;
+				callback->ReportProgress("Merging", (float)fraction );
 			}
 			bool combined = combineHulls(); // mege smallest hulls first, up to the max merge count.
 			if ( !combined ) break;
@@ -260,8 +260,8 @@ public:
 			outputHulls.push_back(mh);
 			if ( callback )
 			{
-				float fraction = (float)i / (float)mChulls.size();
-				callback->ReportProgress("Gathering Merged Hulls Output", fraction );
+				double fraction = (double)i / (double)mChulls.size();
+				callback->ReportProgress("Gathering Merged Hulls Output", (float)fraction );
 			}
 
 		}
@@ -269,7 +269,7 @@ public:
 		return (uint32_t)outputHulls.size();
 	}
 
-	virtual void ConvexDecompResult(uint32_t hvcount,const float *hvertices,uint32_t htcount,const uint32_t *hindices)
+	virtual void ConvexDecompResult(uint32_t hvcount,const double *hvertices,uint32_t htcount,const uint32_t *hindices)
 	{
 		CHull *ch = HACD_NEW(CHull)(hvcount,hvertices,htcount,hindices,mGuid++);
 		if ( ch->mVolume > 0.00001f )
@@ -288,48 +288,33 @@ public:
 		delete this;
 	}
 
-	static float canMerge(CHull *a,CHull *b)
+	static double canMerge(CHull *a,CHull *b)
 	{
 		if ( !a->overlap(*b) ) return 0; // if their AABB's (with a little slop) don't overlap, then return.
 
 		// ok..we are going to combine both meshes into a single mesh
 		// and then we are going to compute the concavity...
-		float ret = 0;
+		double ret = 0;
 
 		uint32_t combinedVertexCount = a->mVertexCount + b->mVertexCount;
-		float *combinedVertices = (float *)HACD_ALLOC(combinedVertexCount*sizeof(float)*3);
-		float *dest = combinedVertices;
-		memcpy(dest,a->mVertices, sizeof(float)*3*a->mVertexCount);
+		double *combinedVertices = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double)*3);
+		double *dest = combinedVertices;
+		memcpy(dest,a->mVertices, sizeof(double)*3*a->mVertexCount);
 		dest+=a->mVertexCount*3;
-		memcpy(dest,b->mVertices,sizeof(float)*3*b->mVertexCount);
+		memcpy(dest,b->mVertices,sizeof(double)*3*b->mVertexCount);
 
 		VHACD::ICHull hl;
-		double *dverts = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double) * 3);
-		for (uint32_t i = 0; i < combinedVertexCount; i++)
-		{
-			dverts[i * 3 + 0] = combinedVertices[i * 3 + 0];
-			dverts[i * 3 + 1] = combinedVertices[i * 3 + 1];
-			dverts[i * 3 + 2] = combinedVertices[i * 3 + 2];
-		}
-		hl.AddPoints((const VHACD::Vec3<double> *)dverts, combinedVertexCount);
+		hl.AddPoints((const VHACD::Vec3<double> *)combinedVertices, combinedVertexCount);
 		VHACD::ICHullError err = hl.Process();
 		if (err == VHACD::ICHullErrorOK)
 		{
 			VHACD::TMMesh& mesh = hl.GetMesh();
 			uint32_t tcount = (uint32_t)mesh.GetNTriangles();
 			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
-			mesh.GetIFS((VHACD::Vec3<double> *)dverts, (VHACD::Vec3<int> *)indices);
-			uint32_t vcount = (uint32_t)mesh.GetNVertices();
-			for (uint32_t i = 0; i < vcount; i++)
-			{
-				combinedVertices[i * 3 + 0] = (float)dverts[i * 3 + 0];
-				combinedVertices[i * 3 + 1] = (float)dverts[i * 3 + 1];
-				combinedVertices[i * 3 + 2] = (float)dverts[i * 3 + 2];
-			}
+			mesh.GetIFS((VHACD::Vec3<double> *)combinedVertices, (VHACD::Vec3<int> *)indices);
 			ret = fm_computeMeshVolume(combinedVertices, tcount, indices);
 			HACD_FREE(indices);
 		}
-		HACD_FREE(dverts);
 		HACD_FREE(combinedVertices);
 		return ret;
 	}
@@ -339,39 +324,25 @@ public:
 	{
 		CHull *ret = 0;
 		uint32_t combinedVertexCount = a->mVertexCount + b->mVertexCount;
-		float *combinedVertices = (float *)HACD_ALLOC(combinedVertexCount*sizeof(float)*3);
-		float *dest = combinedVertices;
-		memcpy(dest,a->mVertices, sizeof(float)*3*a->mVertexCount);
+		double *combinedVertices = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double)*3);
+		double *dest = combinedVertices;
+		memcpy(dest,a->mVertices, sizeof(double)*3*a->mVertexCount);
 		dest+=a->mVertexCount*3;
-		memcpy(dest,b->mVertices,sizeof(float)*3*b->mVertexCount);
+		memcpy(dest,b->mVertices,sizeof(double)*3*b->mVertexCount);
 
 		VHACD::ICHull hl;
-		double *dverts = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double) * 3);
-		for (uint32_t i = 0; i < combinedVertexCount; i++)
-		{
-			dverts[i * 3 + 0] = combinedVertices[i * 3 + 0];
-			dverts[i * 3 + 1] = combinedVertices[i * 3 + 1];
-			dverts[i * 3 + 2] = combinedVertices[i * 3 + 2];
-		}
-		hl.AddPoints((const VHACD::Vec3<double> *)dverts, combinedVertexCount);
+		hl.AddPoints((const VHACD::Vec3<double> *)combinedVertices, combinedVertexCount);
 		VHACD::ICHullError err = hl.Process();
 		if (err == VHACD::ICHullErrorOK)
 		{
 			VHACD::TMMesh& mesh = hl.GetMesh();
 			uint32_t tcount = (uint32_t)mesh.GetNTriangles();
-			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
-			mesh.GetIFS((VHACD::Vec3<double> *)dverts, (VHACD::Vec3<int> *)indices);
 			uint32_t vcount = (uint32_t)mesh.GetNVertices();
-			for (uint32_t i = 0; i < vcount; i++)
-			{
-				combinedVertices[i * 3 + 0] = (float)dverts[i * 3 + 0];
-				combinedVertices[i * 3 + 1] = (float)dverts[i * 3 + 1];
-				combinedVertices[i * 3 + 2] = (float)dverts[i * 3 + 2];
-			}
+			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
+			mesh.GetIFS((VHACD::Vec3<double> *)combinedVertices, (VHACD::Vec3<int> *)indices);
 			ret = HACD_NEW(CHull)(vcount, combinedVertices, tcount, indices, mGuid++);
 			HACD_FREE(indices);
 		}
-		HACD_FREE(dverts);
 		HACD_FREE(combinedVertices);
 		return ret;
 	}
@@ -411,7 +382,7 @@ public:
 		uint32_t	mHashIndex;
 		CHull	*mHullA;
 		CHull	*mHullB;
-		float	mCombinedVolume;
+		double	mCombinedVolume;
 	};
 
 	bool combineHulls(void)
@@ -449,7 +420,7 @@ public:
 						hashIndex = (cr->mGuid << 16 ) | match->mGuid;
 					}
 
-					float *v = mHasBeenTested->find(hashIndex);
+					double *v = mHasBeenTested->find(hashIndex);
 
 					if ( v == NULL )
 					{
@@ -475,7 +446,7 @@ public:
 			(*mHasBeenTested)[job.mHashIndex] = job.mCombinedVolume;
 		}
 
-		float bestVolume = 1e9;
+		double bestVolume = 1e9;
 		CHull *mergeA = NULL;
 		CHull *mergeB = NULL;
 		// now find the two hulls which merged produce the smallest combined volume.
@@ -495,7 +466,7 @@ public:
 					{
 						hashIndex = (cr->mGuid << 16 ) | match->mGuid;
 					}
-					float *v = mHasBeenTested->find(hashIndex);
+					double *v = mHasBeenTested->find(hashIndex);
 					HACD_ASSERT(v);
 					if ( v && *v != 0 && *v < bestVolume )
 					{
@@ -514,8 +485,8 @@ public:
 		{
 			CHull *merge = doMerge(mergeA,mergeB);
 
-			float volumeA = mergeA->mVolume;
-			float volumeB = mergeB->mVolume;
+			double volumeA = mergeA->mVolume;
+			double volumeB = mergeB->mVolume;
 
 			if ( merge )
 			{
@@ -544,8 +515,8 @@ public:
 private:
 	TestedMap			*mHasBeenTested;
 	uint32_t			mGuid;
-	float				mTotalVolume;
-	float				mSmallClusterThreshold;
+	double				mTotalVolume;
+	double				mSmallClusterThreshold;
 	uint32_t			mMergeNumHulls;
 	uint32_t			mMaxHullVertices;
 	CHullVector			mChulls;
