@@ -35,7 +35,7 @@
 #include "vhacdVolume.h"
 
 #ifdef _MSC_VER
-#pragma warning(disable:4267 4100 4244 4701)
+#pragma warning(disable:4267 4100 4244 4701 4018)
 #endif
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))

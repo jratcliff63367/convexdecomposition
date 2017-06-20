@@ -23,6 +23,10 @@
 #include <stdlib.h>
 #include <string>
 
+#ifdef _MSC_VER
+#pragma warning(disable:4018)
+#endif
+
 namespace VHACD {
 Mesh::Mesh()
 {
