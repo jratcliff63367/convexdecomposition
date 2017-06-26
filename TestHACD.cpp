@@ -1,22 +1,22 @@
 #include "TestHACD.h"
 #include "NvRenderDebug.h"
-#include "HACD.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-class TestHACDImpl : public TestHACD, public HACD::ICallback
+#pragma warning(disable:4100)
+
+class TestHACDImpl : public TestHACD, public VHACD::IVHACD::IUserCallback
 {
 public:
 	TestHACDImpl(void)
 	{
-		mMessage[0] = 0;
-		mHACD = HACD::HACD_API::create();
+		mHACD = VHACD::CreateVHACD_ASYNC();
 	}
 
 	virtual ~TestHACDImpl(void)
 	{
-		mHACD->release();
+		mHACD->Release();
 	}
 
 	void getExplodePosition(const double source[3], float dest[3], const double diff[3],const float center[3])
@@ -28,13 +28,13 @@ public:
 
 	virtual void render(RENDER_DEBUG::RenderDebug *renderDebug, float explodeViewScale,const float center[3]) final
 	{
-		uint32_t hullCount = mHACD->getHullCount();
+		uint32_t hullCount = mHACD->GetNConvexHulls();
 		if (hullCount)
 		{
 			for (uint32_t i = 0; i < hullCount; i++)
 			{
-				const HACD::HACD_API::Hull *h = mHACD->getHull(i);
-				if (h)
+				VHACD::IVHACD::ConvexHull h;
+				mHACD->GetConvexHull(i, h);
 				{
 					renderDebug->pushRenderState();
 
@@ -45,27 +45,27 @@ public:
 
 					double diff[3];
 
-					diff[0] = h->mCenter[0] - center[0];
-					diff[1] = h->mCenter[1] - center[1];
-					diff[2] = h->mCenter[2] - center[2];
+					diff[0] = h.m_center[0] - center[0];
+					diff[1] = h.m_center[1] - center[1];
+					diff[2] = h.m_center[2] - center[2];
 
 					diff[0] *= explodeViewScale;
 					diff[1] *= explodeViewScale;
 					diff[2] *= explodeViewScale;
 
-					diff[0] -= h->mCenter[0];
-					diff[1] -= h->mCenter[1];
-					diff[2] -= h->mCenter[2];
+					diff[0] -= h.m_center[0];
+					diff[1] -= h.m_center[1];
+					diff[2] -= h.m_center[2];
 
-					for (uint32_t i = 0; i < h->mTriangleCount; i++)
+					for (uint32_t i = 0; i < h.m_nTriangles; i++)
 					{
-						uint32_t i1 = h->mIndices[i * 3 + 0];
-						uint32_t i2 = h->mIndices[i * 3 + 1];
-						uint32_t i3 = h->mIndices[i * 3 + 2];
+						uint32_t i1 = h.m_triangles[i * 3 + 0];
+						uint32_t i2 = h.m_triangles[i * 3 + 1];
+						uint32_t i3 = h.m_triangles[i * 3 + 2];
 
-						const double *p1 = &h->mVertices[i1 * 3];
-						const double *p2 = &h->mVertices[i2 * 3];
-						const double *p3 = &h->mVertices[i3 * 3];
+						const double *p1 = &h.m_points[i1 * 3];
+						const double *p2 = &h.m_points[i2 * 3];
+						const double *p3 = &h.m_points[i3 * 3];
 
 						float v1[3];
 						float v2[3];
@@ -83,12 +83,17 @@ public:
 		}
 	}
 
-	virtual void decompose(HACD::HACD_API::Desc &desc)
+	virtual void decompose(
+		const double* const points,
+		const unsigned int countPoints,
+		const int* const triangles,
+		const unsigned int countTriangles,
+		VHACD::IVHACD::Parameters &desc)
 	{
-		desc.mCallback = this;
-		uint32_t hullCount = mHACD->performHACD(desc);
+		desc.m_callback = this;
+		mHACD->Compute(points, 3, countPoints, triangles, 3, countTriangles, desc);
+		uint32_t hullCount = mHACD->GetNConvexHulls();
 		printf("Produced: %d convex hulls.\n", hullCount );
-
 	}
 
 	virtual void release(void)
@@ -96,11 +101,13 @@ public:
 		delete this;
 	}
 
-	virtual void ReportProgress(const char *msg, float progress) final
+	virtual void Update(const double overallProgress,
+		const double stageProgress,
+		const double operationProgress,
+		const char* const stage,
+		const char* const operation)
 	{
-		strncpy(mMessage, msg, 512);
-		(progress);
-		printf("%s\n", msg);
+		printf("%s : %s\n", stage, operation);
 	}
 
 	virtual bool Cancelled() final
@@ -111,11 +118,10 @@ public:
 
 	virtual uint32_t getHullCount(void) const final
 	{
-		return mHACD ? mHACD->getHullCount() : 0;
+		return mHACD ? mHACD->GetNConvexHulls() : 0;
 	}
 
-	char			mMessage[512];
-	HACD::HACD_API	*mHACD;
+	VHACD::IVHACD	*mHACD;
 };
 
 TestHACD *TestHACD::create(void)

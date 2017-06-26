@@ -2,12 +2,13 @@
 
 #define MERGE_HULLS_H
 
-#include "HACD.h"
+#include "VHACD.h"
+#include <stdint.h>
 #include <vector>
 
 
 
-namespace HACD
+namespace VHACD
 {
 
 class MergeHull
@@ -30,7 +31,7 @@ public:
 									uint32_t	mergeHullCount,
 									double smallClusterThreshold,
 									uint32_t maxHullVertices,
-									HACD::ICallback *callback) = 0;
+									VHACD::IVHACD::IUserCallback *callback) = 0;
 
 
 	virtual void release(void) = 0;
@@ -45,6 +46,6 @@ protected:
 
 MergeHullsInterface * createMergeHullsInterface(void);
 
-}; // end of HACD namespace
+}; // end of VHACD namespace
 
 #endif

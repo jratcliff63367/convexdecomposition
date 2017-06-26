@@ -7,7 +7,7 @@
 #include "wavefront.h"
 #include "NvRenderDebug.h"
 #include "TestHACD.h"
-#include "HACD.h"
+#include "VHACD.h"
 
 #define TSCALE1 (1.0f/4.0f)
 
@@ -20,8 +20,12 @@ static bool			gUseHACD = true;
 static float		gScaleInputMesh = 1;
 static float		gExplodeViewScale = 1;
 static float		gCenter[3] { 0, 0, 0 };
+static uint32_t		gVertexCount = 0;
+static uint32_t		gTriangleCount = 0;
+static double		*gVertices = nullptr;
+static int			*gIndices = nullptr;
 
-static HACD::HACD_API::Desc gDesc;
+static VHACD::IVHACD::Parameters gDesc;
 
 
 float fm_computePlane(const float *A,const float *B,const float *C,float *n) // returns D
@@ -267,12 +271,13 @@ int main(int argc,const char **argv)
 						if (meshId == 0 && sourceMesh.mVertexCount )
 						{
 							sourceMesh.deepCopyScale(w, gScaleInputMesh);
-							gDesc.mVertexCount = w.mVertexCount;
-							gDesc.mTriangleCount = w.mTriCount;
+							gVertexCount = w.mVertexCount;
+							gTriangleCount = w.mTriCount;
 							delete[]meshVertices;
 							meshVertices = new double[w.mVertexCount * 3];
-							gDesc.mVertices = meshVertices;
-							gDesc.mIndices = w.mIndices;
+							gVertices = meshVertices;
+							gIndices = (int *)w.mIndices;
+
 							for (uint32_t i = 0; i < w.mVertexCount; i++)
 							{
 								meshVertices[i * 3 + 0] = w.mVertices[i * 3 + 0];
@@ -360,22 +365,22 @@ int main(int argc,const char **argv)
 							else if (strcmp(cmd, "decomp") == 0 && thacd)
 							{
 								printf("Performing Convex Decomposition\n");
-								thacd->decompose(gDesc);
+								thacd->decompose(gVertices, gVertexCount, gIndices, gTriangleCount, gDesc);
 							}
-							else if (strcmp(cmd, "DecompositionDepth") == 0 && argc == 2 )
+							else if (strcmp(cmd, "DecompositionDepth") == 0 && argc == 2)
 							{
-								gDesc.mDecompositionDepth = atoi(argv[1]);
-								printf("DecompositionDepth=%d\n", gDesc.mDecompositionDepth);
+								gDesc.m_depth = atoi(argv[1]);
+								printf("DecompositionDepth=%d\n", gDesc.m_depth);
 							}
 							else if (strcmp(cmd, "MaxHullVertices") == 0 && argc == 2)
 							{
-								gDesc.mMaxHullVertices = atoi(argv[1]);
-								printf("MaxHullVertices=%d\n", gDesc.mMaxHullVertices);
+								gDesc.m_maxNumVerticesPerCH = atoi(argv[1]);
+								printf("MaxHullVertices=%d\n", gDesc.m_maxNumVerticesPerCH);
 							}
 							else if (strcmp(cmd, "MaxConvexHulls") == 0 && argc == 2)
 							{
-								gDesc.mMaxConvexHulls = atoi(argv[1]);
-								printf("MaxConvexHulls=%d\n", gDesc.mMaxConvexHulls);
+								gDesc.m_maxConvexHulls = atoi(argv[1]);
+								printf("MaxConvexHulls=%d\n", gDesc.m_maxConvexHulls);
 							}
 							else if (strcmp(cmd, "ShowSourceMesh") == 0 && argc == 2)
 							{
@@ -392,14 +397,14 @@ int main(int argc,const char **argv)
 							else if (strcmp(cmd, "Concavity") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
-								gDesc.mConcavity = (float)atof(value);
-								printf("Concavity=%0.5f\n", gDesc.mConcavity);
+								gDesc.m_concavity = (float)atof(value);
+								printf("Concavity=%0.5f\n", gDesc.m_concavity);
 							}
 							else if (strcmp(cmd, "Gamma") == 0 && argc == 2)
 							{
 								const char *value = argv[1];
-								gDesc.mGamma = (float)atof(value);
-								printf("Gamma=%0.5f\n", gDesc.mGamma);
+								gDesc.m_gamma = (float)atof(value);
+								printf("Gamma=%0.5f\n", gDesc.m_gamma);
 							}
 							else if (strcmp(cmd, "ExplodeViewScale") == 0 && argc == 2)
 							{

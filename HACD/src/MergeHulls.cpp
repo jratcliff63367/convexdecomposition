@@ -9,7 +9,7 @@
 #define HACD_FREE(x) free(x)
 #define HACD_ASSERT(x) assert(x)
 
-namespace HACD
+namespace VHACD
 {
 
 typedef std::unordered_map< uint32_t, double > TestedMap;
@@ -174,7 +174,7 @@ public:
 		uint32_t mergeHullCount,
 		double smallClusterThreshold,
 		uint32_t maxHullVertices,
-		HACD::ICallback *callback)
+		VHACD::IVHACD::IUserCallback *callback)
 	{
 		mGuid = 0;
 
@@ -193,7 +193,7 @@ public:
 			if ( callback )
 			{
 				double fraction = (double)i / (double)inputHulls.size();
-				callback->ReportProgress("Gathering Hulls To Merge", (float)fraction );
+				callback->Update(1,1,fraction,"MergeHulls", "Gathering Hulls To Merge");
 			}
 		}
 
@@ -206,7 +206,7 @@ public:
 			if ( callback )
 			{
 				double fraction = (double)mergeIndex / (double)mergeCount;
-				callback->ReportProgress("Merging", (float)fraction );
+				callback->Update(1,1,fraction,"MergeHulls","Merging");
 			}
 			bool combined = combineHulls(); // mege smallest hulls first, up to the max merge count.
 			if ( !combined ) break;
@@ -226,7 +226,7 @@ public:
 			if ( callback )
 			{
 				double fraction = (double)i / (double)mChulls.size();
-				callback->ReportProgress("Gathering Merged Hulls Output", (float)fraction );
+				callback->Update(1,1,fraction,"MergeHulls","Gathering Merged Hulls Output");
 			}
 
 		}

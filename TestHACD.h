@@ -2,7 +2,7 @@
 #define TEST_HACD_H
 
 #include <stdint.h>
-#include "HACD.h"
+#include "VHACD.h"
 
 namespace RENDER_DEBUG
 {
@@ -16,7 +16,12 @@ class TestHACD
 public:
 	static TestHACD *create(void);
 
-	virtual void decompose(HACD::HACD_API::Desc &desc) = 0;
+	virtual void decompose(
+		const double* const points,
+		const unsigned int countPoints,
+		const int* const triangles,
+		const unsigned int countTriangles,
+		VHACD::IVHACD::Parameters &desc) = 0;
 
 	virtual void render(RENDER_DEBUG::RenderDebug *renderDebug,float explodeViewScale,const float center[3]) = 0;
 

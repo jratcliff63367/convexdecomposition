@@ -1,38 +1,4 @@
-/*!
-**
-** Copyright (c) 2014 by John W. Ratcliff mailto:jratcliffscarab@gmail.com
-**
-**
-** The MIT license:
-**
-** Permission is hereby granted, free of charge, to any person obtaining a copy
-** of this software and associated documentation files (the "Software"), to deal
-** in the Software without restriction, including without limitation the rights
-** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-** copies of the Software, and to permit persons to whom the Software is furnished
-** to do so, subject to the following conditions:
-**
-** The above copyright notice and this permission notice shall be included in all
-** copies or substantial portions of the Software.
 
-** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-** WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-** CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-**
-** If you find this code snippet useful; you can tip me at this bitcoin address:
-**
-** BITCOIN TIP JAR: "1BT66EoaGySkbY9J6MugvQRhMMXDwPxPya"
-**
-
-
-
-*/
-#include "HACD.h"
 #include "VHACD.h"
 #include <stdlib.h>
 #include <string.h>
@@ -43,23 +9,10 @@
 #define HACD_FREE(x) free(x)
 #define HACD_ASSERT(x) assert(x)
 
+#pragma warning(disable:4100)
 
-namespace HACD
+namespace VHACD
 {
-
-int32_t stringFormatV(char* dst, size_t dstSize, const char* src, va_list arg)
-{
-	return ::vsnprintf(dst, dstSize, src, arg);
-}
-
-inline int32_t stringFormat(char *dest,uint32_t size, const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	int ret = stringFormatV(dest, size, format, args);
-	va_end(args);
-	return ret;
-}
 
 inline double det(const double *p1,const double *p2,const double *p3)
 {
@@ -67,7 +20,7 @@ inline double det(const double *p1,const double *p2,const double *p3)
 }
 
 
-static double  fm_computeMeshVolume(const double *vertices,uint32_t tcount,const uint32_t *indices)
+static double  fm_computeMeshVolume(const double *vertices,uint32_t tcount,const int *indices)
 {
 	double volume = 0;
 
@@ -119,7 +72,7 @@ static void  fm_computCenter(uint32_t vcount,const double *vertices,double cente
 
 
 
-class MyHACD_API : public HACD_API, public VHACD::IVHACD::IUserCallback, public VHACD::IVHACD::IUserLogger
+class MyHACD_API : public VHACD::IVHACD
 {
 public:
 	class Vec3
@@ -142,188 +95,132 @@ public:
 
 	MyHACD_API(void)
 	{
-		
+		mVHACD = VHACD::CreateVHACD();
 	}
+
 	virtual ~MyHACD_API(void)
 	{
 		releaseHACD();
+		mVHACD->Release();
 	}
 
-	//
-	virtual void Update(const double overallProgress,
-		const double stageProgress,
-		const double operationProgress,
-		const char* const stage,
-		const char* const operation) final
-	{
-		if (mCallback)
-		{
-			char scratch[512];
-			stringFormat(scratch, sizeof(scratch), "VHACD::OverallProgress: %0.2f : StageProgress: %0.2f : Operation Progress: %0.2f : %s : %s\n", overallProgress, stageProgress, operationProgress, stage, operation);
-			mCallback->ReportProgress(scratch, (float)operationProgress);
-		}
-	}
-
-	virtual void Log(const char* const msg) final
-	{
-		if (mCallback)
-		{
-			mCallback->ReportProgress(msg, 0);
-		}
-	}
-
-	virtual uint32_t	performHACD(const Desc &_desc) 
+	virtual bool Compute(const double* const points,
+		const unsigned int stridePoints,
+		const unsigned int countPoints,
+		const int* const triangles,
+		const unsigned int strideTriangles,
+		const unsigned int countTriangles,
+		const Parameters& _desc) final
 	{
 		uint32_t ret = 0;
 
-		mCallback = _desc.mCallback;
-
-		if ( mCallback )
-		{
-			mCallback->ReportProgress("Starting HACD",1);
-		}
+		mCallback = _desc.m_callback;
 
 		releaseHACD();
+		IVHACD::Parameters desc = _desc;
 
-		Desc desc = _desc;
-
-		if ( desc.mVertexCount )
+		if ( countPoints )
 		{
-			VHACD::IVHACD *vhacd = VHACD::CreateVHACD();
-			if (vhacd)
+			bool ok = mVHACD->Compute(points, stridePoints, countPoints, triangles, strideTriangles, countTriangles, desc);
+			if (ok)
 			{
-				VHACD::IVHACD::Parameters p;
-				p.m_concavity = desc.mConcavity;
-				p.m_gamma = desc.mGamma;
-				p.m_depth = desc.mDecompositionDepth;
-				p.m_maxNumVerticesPerCH = desc.mMaxHullVertices;
-				p.m_callback = this;
-				p.m_logger = this;
+				ret = mVHACD->GetNConvexHulls();
+				mHullCount = ret;
+				mHulls = new IVHACD::ConvexHull[mHullCount];
 
-				bool ok = vhacd->Compute(desc.mVertices, 3, desc.mVertexCount, (const int *const)desc.mIndices, 3, desc.mTriangleCount, p);
-
-				if (ok)
+				for (unsigned int i = 0; i < ret; i++)
 				{
-					ret = vhacd->GetNConvexHulls();
-					mHullCount = ret;
-					mHulls = new Hull[mHullCount];
+					VHACD::IVHACD::ConvexHull vhull;
+					mVHACD->GetConvexHull(i, vhull);
+					VHACD::IVHACD::ConvexHull h;
+					h.m_nPoints = vhull.m_nPoints;
+					h.m_points = (double *)HACD_ALLOC(sizeof(double) * 3 * h.m_nPoints);
+					memcpy(h.m_points, vhull.m_points, sizeof(double) * 3 * h.m_nPoints);
+					h.m_nTriangles = vhull.m_nTriangles;
+					h.m_triangles = (int *)HACD_ALLOC(sizeof(int) * 3 * h.m_nTriangles);
+					memcpy(h.m_triangles, vhull.m_triangles, sizeof(int) * 3 * h.m_nTriangles);
+					h.m_volume = fm_computeMeshVolume(h.m_points, h.m_nTriangles, h.m_triangles);
+					fm_computCenter(h.m_nPoints, h.m_points, h.m_center);
 
-					for (unsigned int i = 0; i < ret; i++)
-					{
-						VHACD::IVHACD::ConvexHull vhull;
-						vhacd->GetConvexHull(i, vhull);
-						Hull h;
-						h.mVertexCount = vhull.m_nPoints;
-						h.mVertices = (double *)HACD_ALLOC(sizeof(double) * 3 * h.mVertexCount);
-						for (uint32_t j = 0; j < h.mVertexCount; j++)
-						{
-							double *dest = (double *)&h.mVertices[j * 3];
-							dest[0] = (double)vhull.m_points[j * 3 + 0];
-							dest[1] = (double)vhull.m_points[j * 3 + 1];
-							dest[2] = (double)vhull.m_points[j * 3 + 2];
-						}
-
-						h.mTriangleCount = vhull.m_nTriangles;
-						uint32_t *destIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
-						h.mIndices = destIndices;
-
-						for (uint32_t j = 0; j < h.mTriangleCount; j++)
-						{
-							destIndices[0] = vhull.m_triangles[j * 3 + 0];
-							destIndices[1] = vhull.m_triangles[j * 3 + 1];
-							destIndices[2] = vhull.m_triangles[j * 3 + 2];
-							destIndices += 3;
-						}
-
-						h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
-						fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
-
-						mHulls[i] = h;
-					}
+					mHulls[i] = h;
 				}
-
-				vhacd->Release();
 			}
 		}
 
 		ret = (uint32_t)mHullCount;
 
-		if (ret && ret > desc.mMaxConvexHulls)
+		if (ret && ret > (uint32_t)desc.m_maxConvexHulls)
 		{
 			MergeHullsInterface *mhi = createMergeHullsInterface();
 			if (mhi)
 			{
-				if (desc.mCallback)
+				if (desc.m_callback)
 				{
-					desc.mCallback->ReportProgress("Gathering Input Hulls", 1);
+					desc.m_callback->Update(1, 1, 0.1, "Merge ConvexHulls", "Gathering Convex Hulls");
 				}
 
 				MergeHullVector inputHulls;
 				MergeHullVector outputHulls;
 				for (uint32_t i = 0; i < ret; i++)
 				{
-					Hull &h = mHulls[i];
+					IVHACD::ConvexHull &h = mHulls[i];
 					MergeHull mh;
-					mh.mTriangleCount = h.mTriangleCount;
-					mh.mVertexCount = h.mVertexCount;
-					mh.mVertices = h.mVertices;
-					mh.mIndices = h.mIndices;
+					mh.mTriangleCount = h.m_nTriangles;
+					mh.mVertexCount = h.m_nPoints;
+					mh.mVertices = h.m_points;
+					mh.mIndices = (uint32_t *)h.m_triangles;
 					inputHulls.push_back(mh);
 				}
-				ret = mhi->mergeHulls(inputHulls, outputHulls, desc.mMaxConvexHulls, 0.01f + FLT_EPSILON, desc.mMaxHullVertices, desc.mCallback);
+				ret = mhi->mergeHulls(inputHulls, outputHulls, desc.m_maxConvexHulls, 0.01f + FLT_EPSILON, desc.m_maxNumVerticesPerCH, desc.m_callback);
 
 				releaseHACD();
 
-				if (desc.mCallback)
+				if (desc.m_callback)
 				{
-					desc.mCallback->ReportProgress("Gathering Merged Hulls", 1);
+					desc.m_callback->Update(1, 1, 0.2, "Merge Convex Hulls", "Gathering Merged Hulls");
 				}
 
 				mHullCount = uint32_t(outputHulls.size());
-				mHulls = new Hull[mHullCount];
+				mHulls = new IVHACD::ConvexHull[mHullCount];
 
 				for (uint32_t i = 0; i < outputHulls.size(); i++)
 				{
-					Hull h;
+					IVHACD::ConvexHull h;
 					const MergeHull &mh = outputHulls[i];
-					h.mTriangleCount = mh.mTriangleCount;
-					h.mVertexCount = mh.mVertexCount;
-					h.mIndices = (uint32_t *)HACD_ALLOC(sizeof(uint32_t) * 3 * h.mTriangleCount);
-					h.mVertices = (double *)HACD_ALLOC(sizeof(double) * 3 * h.mVertexCount);
-					memcpy((uint32_t *)h.mIndices, mh.mIndices, sizeof(uint32_t) * 3 * h.mTriangleCount);
-					memcpy((double *)h.mVertices, mh.mVertices, sizeof(double) * 3 * h.mVertexCount);
+					h.m_nTriangles = mh.mTriangleCount;
+					h.m_nPoints = mh.mVertexCount;
+					h.m_triangles = (int *)HACD_ALLOC(sizeof(int) * 3 * h.m_nTriangles);
+					h.m_points = (double *)HACD_ALLOC(sizeof(double) * 3 * h.m_nPoints);
+					memcpy((uint32_t *)h.m_triangles, mh.mIndices, sizeof(uint32_t) * 3 * h.m_nTriangles);
+					memcpy((double *)h.m_points, mh.mVertices, sizeof(double) * 3 * h.m_nPoints);
 
-					h.mVolume = fm_computeMeshVolume(h.mVertices, h.mTriangleCount, h.mIndices);
-					fm_computCenter(h.mVertexCount, h.mVertices, h.mCenter);
+					h.m_volume = fm_computeMeshVolume(h.m_points, h.m_nTriangles, h.m_triangles);
+					fm_computCenter(h.m_nPoints, h.m_points, h.m_center);
 
 					mHulls[i] = h;
 				}
-
-
 
 				mhi->release();
 			}
 		}
 
-		return ret;
+		return ret ? true : false;
 	}
 
-	void releaseHull(Hull &h)
+	void releaseHull(VHACD::IVHACD::ConvexHull &h)
 	{
-		HACD_FREE((void *)h.mIndices);
-		HACD_FREE((void *)h.mVertices);
-		h.mIndices = NULL;
-		h.mVertices = NULL;
+		HACD_FREE((void *)h.m_triangles);
+		HACD_FREE((void *)h.m_points);
+		h.m_triangles = nullptr;
+		h.m_points = nullptr;
 	}
 
-	virtual const Hull		*getHull(uint32_t index)  const
+	virtual void GetConvexHull(const unsigned int index, VHACD::IVHACD::ConvexHull& ch) const final
 	{
-		const Hull *ret = NULL;
 		if ( index < mHullCount )
 		{
-			ret = &mHulls[index];
+			ch = mHulls[index];
 		}
-		return ret;
 	}
 
 	virtual void	releaseHACD(void) // release memory associated with the last HACD request
@@ -335,6 +232,8 @@ public:
 		delete[]mHulls;
 		mHulls = nullptr;
 		mHullCount = 0;
+		HACD_FREE(mVertices);
+		mVertices = nullptr;
 	}
 
 
@@ -348,18 +247,78 @@ public:
 		return mHullCount;
 	}
 
+	virtual void Cancel() final
+	{
+
+	}
+
+	virtual bool Compute(const float* const points,
+		const unsigned int stridePoints,
+		const unsigned int countPoints,
+		const int* const triangles,
+		const unsigned int strideTriangles,
+		const unsigned int countTriangles,
+		const Parameters& params) final
+	{
+
+		HACD_FREE(mVertices);
+		mVertices = (double *)HACD_ALLOC(sizeof(double)*countPoints * 3);
+		const float *source = points;
+		double *dest = mVertices;
+		for (uint32_t i = 0; i < countPoints; i++)
+		{
+			dest[0] = source[0];
+			dest[1] = source[1];
+			dest[2] = source[2];
+			dest += 3;
+			source += stridePoints;
+		}
+
+		return Compute(mVertices, 3, countPoints, triangles, strideTriangles, countTriangles, params);
+
+	}
+
+	virtual unsigned int GetNConvexHulls() const final
+	{
+		return mHullCount;
+	}
+
+	virtual void Clean(void) final // release internally allocated memory
+	{
+		releaseHACD();
+		mVHACD->Clean();
+	}
+
+	virtual void Release(void) final  // release IVHACD
+	{
+		delete this;
+	}
+
+	virtual bool OCLInit(void* const oclDevice,
+		IUserLogger* const logger = 0) final
+	{
+		return mVHACD->OCLInit(oclDevice, logger);
+	}
+		
+	virtual bool OCLRelease(IUserLogger* const logger = 0) final
+	{
+		return mVHACD->OCLRelease(logger);
+	}
+
 private:
-	uint32_t				mHullCount{ 0 };
-	Hull					*mHulls{ nullptr };
-	ICallback				*mCallback{ nullptr };
+	double							*mVertices{ nullptr };
+	uint32_t						mHullCount{ 0 };
+	VHACD::IVHACD::ConvexHull		*mHulls{ nullptr };
+	VHACD::IVHACD::IUserCallback	*mCallback{ nullptr };
+	VHACD::IVHACD					*mVHACD{ nullptr };
 };
 
-HACD_API * HACD_API::create(void)
+IVHACD* CreateVHACD_ASYNC(void)
 {
 	MyHACD_API *m = new MyHACD_API;
-	return static_cast<HACD_API *>(m);
+	return static_cast<IVHACD *>(m);
 }
 
 
-};
+}; // end of VHACD namespace
 
