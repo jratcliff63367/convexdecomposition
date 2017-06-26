@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#pragma warning(disable:4100)
-
 class TestHACDImpl : public TestHACD, public VHACD::IVHACD::IUserCallback
 {
 public:
@@ -107,7 +105,7 @@ public:
 		const char* const stage,
 		const char* const operation)
 	{
-		printf("%s : %s\n", stage, operation);
+		printf("%s : %s : %0.2f : %0.2f : %0.2f\n", stage, operation, overallProgress, stageProgress, operationProgress);
 	}
 
 	virtual bool Cancelled() final

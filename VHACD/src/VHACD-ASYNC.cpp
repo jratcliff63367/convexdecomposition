@@ -1,4 +1,3 @@
-
 #include "VHACD.h"
 #include <stdlib.h>
 #include <string.h>
@@ -8,8 +7,6 @@
 #define HACD_ALLOC(x) malloc(x)
 #define HACD_FREE(x) free(x)
 #define HACD_ASSERT(x) assert(x)
-
-#pragma warning(disable:4100)
 
 namespace VHACD
 {

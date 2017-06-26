@@ -25,9 +25,6 @@
       <Files name="ConvexDecomposition" root="../.." type="header">
       	*.cpp
       	*.h
-        HACD/include/*.h
-        HACD/public/*.h
-        HACD/src/*.cpp
         VHACD/inc/*.h
         VHACD/public/*.h
         VHACD/src/*.cpp
@@ -46,8 +43,6 @@
         <LFlags tool="vc8">/NODEFAULTLIB:libcp.lib</LFlags>
 
         <SearchPaths type="header">
-        	"../../HACD/include"
-        	"../../HACD/public"
         	"../../VHACD/public"
         	"../../VHACD/inc"
         	"../../NvRenderDebug"
