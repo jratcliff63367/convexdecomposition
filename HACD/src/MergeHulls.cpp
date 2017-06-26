@@ -1,49 +1,18 @@
 #include "MergeHulls.h"
-//#include "ConvexHull.h"
 #include "vhacdICHull.h"
-#include "SparseArray.h"
 #include <string.h>
 #include <math.h>
+#include <unordered_map>
+#include <assert.h>
 
-/*!
-**
-** Copyright (c) 2014 by John W. Ratcliff mailto:jratcliffscarab@gmail.com
-**
-**
-** The MIT license:
-**
-** Permission is hereby granted, free of charge, to any person obtaining a copy
-** of this software and associated documentation files (the "Software"), to deal
-** in the Software without restriction, including without limitation the rights
-** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-** copies of the Software, and to permit persons to whom the Software is furnished
-** to do so, subject to the following conditions:
-**
-** The above copyright notice and this permission notice shall be included in all
-** copies or substantial portions of the Software.
-
-** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-** WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-** CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-**
-** If you find this code snippet useful; you can tip me at this bitcoin address:
-**
-** BITCOIN TIP JAR: "1BT66EoaGySkbY9J6MugvQRhMMXDwPxPya"
-**
-
-*/
-
-using namespace hacd;
+#define HACD_ALLOC(x) malloc(x)
+#define HACD_FREE(x) free(x)
+#define HACD_ASSERT(x) assert(x)
 
 namespace HACD
 {
 
-typedef SparseArray< double > TestedMap;
+typedef std::unordered_map< uint32_t, double > TestedMap;
 
 static int gCombineCount=0;
 
@@ -96,7 +65,7 @@ static bool fm_intersectAABB(const double *bmin1,const double *bmax1,const doubl
 }
 
 
-static HACD_INLINE double det(const double *p1,const double *p2,const double *p3)
+static inline double det(const double *p1,const double *p2,const double *p3)
 {
 	return  p1[0]*p2[1]*p3[2] + p2[0]*p3[1]*p1[2] + p3[0]*p1[1]*p2[2] -p1[0]*p3[1]*p2[2] - p2[0]*p1[1]*p3[2] - p3[0]*p2[1]*p1[2];
 }
@@ -121,7 +90,7 @@ static double  fm_computeMeshVolume(const double *vertices,uint32_t tcount,const
 
 
 
-class CHull : public UANS::UserAllocated
+class CHull
 	{
 	public:
 		CHull(uint32_t vcount,const double *vertices,uint32_t tcount,const uint32_t *indices,uint32_t guid)
@@ -187,14 +156,13 @@ class CHull : public UANS::UserAllocated
 
 
 
-typedef hacd::vector< CHull * > CHullVector;
+typedef std::vector< CHull * > CHullVector;
 
-class MyMergeHullsInterface : public MergeHullsInterface, public UANS::UserAllocated
+class MyMergeHullsInterface : public MergeHullsInterface
 {
 public:
 	MyMergeHullsInterface(void)
 	{
-		mHasBeenTested = NULL;
 	}
 
 	virtual ~MyMergeHullsInterface(void)
@@ -213,7 +181,6 @@ public:
 		mGuid = 0;
 
 		uint32_t count = (uint32_t)inputHulls.size();
-		mHasBeenTested = HACD_NEW(TestedMap)(count*count);
 		mSmallClusterThreshold = smallClusterThreshold;
 		mMaxHullVertices = maxHullVertices;
 		mMergeNumHulls = mergeHullCount;
@@ -222,7 +189,7 @@ public:
 		for (uint32_t i=0; i<inputHulls.size(); i++)
 		{
 			const MergeHull &h = inputHulls[i];
-			CHull *ch = HACD_NEW(CHull)(h.mVertexCount,h.mVertices,h.mTriangleCount,h.mIndices,mGuid++);
+			CHull *ch = new CHull(h.mVertexCount,h.mVertices,h.mTriangleCount,h.mIndices,mGuid++);
 			mChulls.push_back(ch);
 			mTotalVolume+=ch->mVolume;
 			if ( callback )
@@ -265,13 +232,12 @@ public:
 			}
 
 		}
-		delete mHasBeenTested;
 		return (uint32_t)outputHulls.size();
 	}
 
 	virtual void ConvexDecompResult(uint32_t hvcount,const double *hvertices,uint32_t htcount,const uint32_t *hindices)
 	{
-		CHull *ch = HACD_NEW(CHull)(hvcount,hvertices,htcount,hindices,mGuid++);
+		CHull *ch = new CHull(hvcount,hvertices,htcount,hindices,mGuid++);
 		if ( ch->mVolume > 0.00001f )
 		{
 			mChulls.push_back(ch);
@@ -340,7 +306,7 @@ public:
 			uint32_t vcount = (uint32_t)mesh.GetNVertices();
 			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
 			mesh.GetIFS((VHACD::Vec3<double> *)combinedVertices, (VHACD::Vec3<int> *)indices);
-			ret = HACD_NEW(CHull)(vcount, combinedVertices, tcount, indices, mGuid++);
+			ret = new CHull(vcount, combinedVertices, tcount, indices, mGuid++);
 			HACD_FREE(indices);
 		}
 		HACD_FREE(combinedVertices);
@@ -397,9 +363,11 @@ public:
 		// a target number or on a number of generated hulls.
 		bool mergeTargetMet = (uint32_t)mChulls.size() <= mMergeNumHulls;
 		if (mergeTargetMet && (mSmallClusterThreshold == 0.0f))
-			return false;		
+		{
+			return false;
+		}
 
-		hacd::vector< CombineVolumeJob > jobs;
+		std::vector< CombineVolumeJob > jobs;
 
 		// First, see if there are any pairs of hulls who's combined volume we have not yet calculated.
 		// If there are, then we add them to the jobs list
@@ -420,13 +388,12 @@ public:
 						hashIndex = (cr->mGuid << 16 ) | match->mGuid;
 					}
 
-					double *v = mHasBeenTested->find(hashIndex);
-
-					if ( v == NULL )
+					TestedMap::iterator found = mHasBeenTested.find(hashIndex);
+					if (found == mHasBeenTested.end() )
 					{
 						CombineVolumeJob job(cr,match,hashIndex);
 						jobs.push_back(job);
-						(*mHasBeenTested)[hashIndex] = 0.0f;  // assign it to some value so we don't try to create more than one job for it.
+						mHasBeenTested[hashIndex] = 0.0f;  // assign it to some value so we don't try to create more than one job for it.
 					}
 				}
 			}
@@ -443,7 +410,7 @@ public:
 		for (uint32_t i=0; i<jobs.size(); i++)
 		{
 			CombineVolumeJob &job = jobs[i];
-			(*mHasBeenTested)[job.mHashIndex] = job.mCombinedVolume;
+			mHasBeenTested[job.mHashIndex] = job.mCombinedVolume;
 		}
 
 		double bestVolume = 1e9;
@@ -466,13 +433,18 @@ public:
 					{
 						hashIndex = (cr->mGuid << 16 ) | match->mGuid;
 					}
-					double *v = mHasBeenTested->find(hashIndex);
-					HACD_ASSERT(v);
-					if ( v && *v != 0 && *v < bestVolume )
+
+					TestedMap::iterator found = mHasBeenTested.find(hashIndex);
+					HACD_ASSERT(found != mHasBeenTested.end());
+					if (found != mHasBeenTested.end())
 					{
-						bestVolume = *v;
-						mergeA = cr;
-						mergeB = match;
+						double v = (*found).second;
+						if (v != 0 && v < bestVolume)
+						{
+							bestVolume = v;
+							mergeA = cr;
+							mergeB = match;
+						}
 					}
 				}
 			}
@@ -513,7 +485,7 @@ public:
 	}
 
 private:
-	TestedMap			*mHasBeenTested;
+	TestedMap			mHasBeenTested;
 	uint32_t			mGuid;
 	double				mTotalVolume;
 	double				mSmallClusterThreshold;
@@ -524,7 +496,7 @@ private:
 
 MergeHullsInterface * createMergeHullsInterface(void)
 {
-	MyMergeHullsInterface *m = HACD_NEW(MyMergeHullsInterface);
+	MyMergeHullsInterface *m = new MyMergeHullsInterface;
 	return static_cast< MergeHullsInterface *>(m);
 }
 

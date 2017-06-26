@@ -37,10 +37,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include "PlatformConfigHACD.h"
 #include "MergeHulls.h"
 
-using namespace hacd;
+#define HACD_ALLOC(x) malloc(x)
+#define HACD_FREE(x) free(x)
+#define HACD_ASSERT(x) assert(x)
+
 
 namespace HACD
 {
@@ -117,7 +119,7 @@ static void  fm_computCenter(uint32_t vcount,const double *vertices,double cente
 
 
 
-class MyHACD_API : public HACD_API, public UANS::UserAllocated, public VHACD::IVHACD::IUserCallback, public VHACD::IVHACD::IUserLogger
+class MyHACD_API : public HACD_API, public VHACD::IVHACD::IUserCallback, public VHACD::IVHACD::IUserLogger
 {
 public:
 	class Vec3
@@ -277,7 +279,7 @@ public:
 					desc.mCallback->ReportProgress("Gathering Merged Hulls", 1);
 				}
 
-				mHullCount = outputHulls.size();
+				mHullCount = uint32_t(outputHulls.size());
 				mHulls = new Hull[mHullCount];
 
 				for (uint32_t i = 0; i < outputHulls.size(); i++)
@@ -354,7 +356,7 @@ private:
 
 HACD_API * HACD_API::create(void)
 {
-	MyHACD_API *m = HACD_NEW(MyHACD_API);
+	MyHACD_API *m = new MyHACD_API;
 	return static_cast<HACD_API *>(m);
 }
 
