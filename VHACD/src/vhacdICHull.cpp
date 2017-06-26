@@ -16,7 +16,7 @@
 #include <limits>
 
 #ifdef _MSC_VER
-#pragma warning(disable:4706)
+#pragma warning(disable:4706 4456)
 #endif
 
 namespace VHACD {

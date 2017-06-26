@@ -22,7 +22,7 @@
 #include <string.h>
 
 #ifdef _MSC_VER
-#pragma warning(disable:4100)
+#pragma warning(disable:4100 4458)
 #endif
 
 namespace VHACD {

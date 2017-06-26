@@ -9,6 +9,8 @@
 #include "TestHACD.h"
 #include "VHACD.h"
 
+#pragma warning(disable:4456 4457)
+
 #define TSCALE1 (1.0f/4.0f)
 
 RENDER_DEBUG::RenderDebugTyped *gRenderDebugTyped=NULL;

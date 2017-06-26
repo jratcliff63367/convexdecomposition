@@ -29,14 +29,14 @@ public:
 		uint32_t hullCount = mHACD->GetNConvexHulls();
 		if (hullCount)
 		{
-			for (uint32_t i = 0; i < hullCount; i++)
+			for (uint32_t j = 0; j < hullCount; j++)
 			{
 				VHACD::IVHACD::ConvexHull h;
-				mHACD->GetConvexHull(i, h);
+				mHACD->GetConvexHull(j, h);
 				{
 					renderDebug->pushRenderState();
 
-					uint32_t cindex = (i % 20) + RENDER_DEBUG::DebugColors::Red;
+					uint32_t cindex = (j % 20) + RENDER_DEBUG::DebugColors::Red;
 
 					uint32_t color = renderDebug->getDebugColor((RENDER_DEBUG::DebugColors::Enum)cindex);
 					renderDebug->setCurrentColor(color,0xFFFFFF);

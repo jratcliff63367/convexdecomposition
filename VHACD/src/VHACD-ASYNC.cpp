@@ -2,7 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <thread>
+#include <atomic>
+#include <chrono>
 #include "MergeHulls.h"
+
+#define ENABLE_ASYNC 0
 
 #define HACD_ALLOC(x) malloc(x)
 #define HACD_FREE(x) free(x)
@@ -26,7 +31,7 @@ static double  fm_computeMeshVolume(const double *vertices,uint32_t tcount,const
 		const double *p1 = &vertices[ indices[0]*3 ];
 		const double *p2 = &vertices[ indices[1]*3 ];
 		const double *p3 = &vertices[ indices[2]*3 ];
-		volume+=det(p1,p2,p3); // compute the volume of the tetrahedran relative to the origin.
+		volume+=det(p1,p2,p3); // compute the volume of the tetrahedron relative to the origin.
 	}
 
 	volume*=(1.0f/6.0f);
@@ -67,7 +72,10 @@ static void  fm_computCenter(uint32_t vcount,const double *vertices,double cente
 
 }
 
+void callFromThread(void)
+{
 
+}
 
 class MyHACD_API : public VHACD::IVHACD
 {
@@ -99,8 +107,10 @@ public:
 	{
 		releaseHACD();
 		mVHACD->Release();
+		delete mThread; // ????
 	}
 
+	
 	virtual bool Compute(const double* const points,
 		const unsigned int stridePoints,
 		const unsigned int countPoints,
@@ -109,11 +119,36 @@ public:
 		const unsigned int countTriangles,
 		const Parameters& _desc) final
 	{
+#if ENABLE_ASYNC
+		releaseHACD();
+
+		mRunning = true;
+		mThread = new std::thread([this, points, stridePoints, countPoints, triangles, strideTriangles, countTriangles, _desc]()
+		{
+			ComputeNow(points, stridePoints, countPoints, triangles, strideTriangles, countTriangles, _desc);
+			mRunning = false;
+		});
+#else
+		releaseHACD();
+		ComputeNow(points, stridePoints, countPoints, triangles, strideTriangles, countTriangles, _desc);
+#endif
+		return true;
+	}
+
+	bool ComputeNow(const double* const points,
+		const unsigned int stridePoints,
+		const unsigned int countPoints,
+		const int* const triangles,
+		const unsigned int strideTriangles,
+		const unsigned int countTriangles,
+		const Parameters& _desc) 
+	{
 		uint32_t ret = 0;
+
 
 		mCallback = _desc.m_callback;
 
-		releaseHACD();
+
 		IVHACD::Parameters desc = _desc;
 
 		if ( countPoints )
@@ -222,6 +257,18 @@ public:
 
 	virtual void	releaseHACD(void) // release memory associated with the last HACD request
 	{
+		// If the thread is still running we need to cancel the operation and wait for it to complete.
+		if (mRunning)
+		{
+			Cancel();
+			while (mRunning)
+			{
+				using namespace std::chrono_literals;
+				std::this_thread::sleep_for(1ms);
+			}
+			delete mThread;
+			mThread = nullptr;
+		}
 		for (uint32_t i=0; i<mHullCount; i++)
 		{
 			releaseHull(mHulls[i]);
@@ -246,7 +293,11 @@ public:
 
 	virtual void Cancel() final
 	{
-
+		if (mRunning)
+		{
+			mVHACD->Cancel();
+			mCancel = true;
+		}
 	}
 
 	virtual bool Compute(const float* const points,
@@ -308,6 +359,9 @@ private:
 	VHACD::IVHACD::ConvexHull		*mHulls{ nullptr };
 	VHACD::IVHACD::IUserCallback	*mCallback{ nullptr };
 	VHACD::IVHACD					*mVHACD{ nullptr };
+	std::thread						*mThread{ nullptr };
+	std::atomic< bool >				mRunning{ false };
+	std::atomic<bool>				mCancel{ false };
 };
 
 IVHACD* CreateVHACD_ASYNC(void)
