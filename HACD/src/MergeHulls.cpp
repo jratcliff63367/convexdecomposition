@@ -14,8 +14,6 @@ namespace HACD
 
 typedef std::unordered_map< uint32_t, double > TestedMap;
 
-static int gCombineCount=0;
-
 static double fm_computeBestFitAABB(uint32_t vcount,const double *points,uint32_t pstride,double *bmin,double *bmax) // returns the diagonal distance
 {
 
@@ -321,34 +319,13 @@ public:
 			mHullA		= hullA;
 			mHullB		= hullB;
 			mHashIndex	= hashIndex;
-            mCombinedVolume = 0;
+			mCombinedVolume = canMerge(mHullA, mHullB);
 		}
 
-		void startJob(void)
-		{
-			job_process(NULL,0);
-		}
-
-		virtual void job_process(void * /*userData*/,int32_t /*userId*/)   // RUNS IN ANOTHER THREAD!! MUST BE THREAD SAFE!
-		{
-			mCombinedVolume = canMerge(mHullA,mHullB);
-		}
-
-		virtual void job_onFinish(void * /*userData*/,int32_t /*userId*/)  // runs in primary thread of the context
-		{
-			gCombineCount--;
-		}
-
-		virtual void job_onCancel(void * /*userData*/,int32_t /*userId*/)  // runs in primary thread of the context
-		{
-
-		}
-
-	//private:
 		uint32_t	mHashIndex;
-		CHull	*mHullA;
-		CHull	*mHullB;
-		double	mCombinedVolume;
+		CHull		*mHullA;
+		CHull		*mHullB;
+		double		mCombinedVolume;
 	};
 
 	bool combineHulls(void)
@@ -398,13 +375,6 @@ public:
 				}
 			}
 		}
-
-		// ok..we have posted all of the jobs, let's let's solve them in parallel
-		for (uint32_t i=0; i<jobs.size(); i++)
-		{
-			jobs[i].startJob();
-		}
-
 
 		// once we have the answers, now put the results into the hash table.
 		for (uint32_t i=0; i<jobs.size(); i++)
