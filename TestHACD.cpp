@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-class TestHACDImpl : public TestHACD, public VHACD::IVHACD::IUserCallback
+class TestHACDImpl : public TestHACD, public VHACD::IVHACD::IUserCallback, public VHACD::IVHACD::IUserLogger
 {
 public:
 	TestHACDImpl(void)
@@ -103,9 +103,14 @@ public:
 		const double stageProgress,
 		const double operationProgress,
 		const char* const stage,
-		const char* const operation)
+		const char* const operation) final
 	{
 		printf("%s : %s : %0.2f : %0.2f : %0.2f\n", stage, operation, overallProgress, stageProgress, operationProgress);
+	}
+
+	virtual void Log(const char* const msg) final
+	{
+		printf("VHACD:%s\n", msg);
 	}
 
 	virtual bool Cancelled() final
@@ -117,6 +122,14 @@ public:
 	virtual uint32_t getHullCount(void) const final
 	{
 		return mHACD ? mHACD->GetNConvexHulls() : 0;
+	}
+
+	virtual void cancel(void)
+	{
+		if (mHACD)
+		{
+			mHACD->Cancel();
+		}
 	}
 
 	VHACD::IVHACD	*mHACD;

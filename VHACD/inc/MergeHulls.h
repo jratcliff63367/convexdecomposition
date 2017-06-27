@@ -33,6 +33,9 @@ public:
 									uint32_t maxHullVertices,
 									VHACD::IVHACD::IUserCallback *callback) = 0;
 
+	// Cancel the operation before it is completed...
+	virtual void cancel(void) = 0;
+
 
 	virtual void release(void) = 0;
 

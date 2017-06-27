@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<Filter Include="ConvexDecomposition">
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="ConvexDecomposition\VHACD">
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="ConvexDecomposition\VHACD\inc">
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\VHACD\inc\btAlignedAllocator.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\btAlignedObjectArray.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\btConvexHullComputer.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\btMinMax.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\btScalar.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\btVector3.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\MergeHulls.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdCircularList.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdICHull.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdManifoldMesh.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdMesh.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdMutex.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdSArray.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdTimer.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdVector.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdVHACD.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\VHACD\inc\vhacdVolume.h">
+			<Filter>ConvexDecomposition\VHACD\inc</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="ConvexDecomposition\VHACD\public">
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\VHACD\public\VHACD.h">
+			<Filter>ConvexDecomposition\VHACD\public</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="ConvexDecomposition\VHACD\src">
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\VHACD\src\btAlignedAllocator.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\btConvexHullComputer.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\MergeHulls.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\VHACD-ASYNC.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\VHACD.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\vhacdICHull.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\vhacdManifoldMesh.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\vhacdMesh.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\VHACD\src\vhacdVolume.cpp">
+			<Filter>ConvexDecomposition\VHACD\src</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="ConvexDecomposition\NvRenderDebug">
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\NvRenderDebug\NvRenderDebug.h">
+			<Filter>ConvexDecomposition\NvRenderDebug</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\NvRenderDebug\NvRenderDebugTyped.h">
+			<Filter>ConvexDecomposition\NvRenderDebug</Filter>
+		</ClInclude>
+		<ClCompile Include="..\..\NvRenderDebug\NvRenderDebugBinding.cpp">
+			<Filter>ConvexDecomposition\NvRenderDebug</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\main.cpp">
+			<Filter>ConvexDecomposition</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\TestHACD.cpp">
+			<Filter>ConvexDecomposition</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\wavefront.cpp">
+			<Filter>ConvexDecomposition</Filter>
+		</ClCompile>
+		<ClInclude Include="..\..\TestHACD.h">
+			<Filter>ConvexDecomposition</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\wavefront.h">
+			<Filter>ConvexDecomposition</Filter>
+		</ClInclude>
+	</ItemGroup>
+</Project>

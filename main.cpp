@@ -184,12 +184,13 @@ void createMenus(void)
 
 	gRenderDebug->sendRemoteCommand("BeginGroup \"Controls\"");	// Mark the beginning of a group of controls.
 	gRenderDebug->sendRemoteCommand("FileTransferButton \" Select Wavefront File\" WavefrontFile \"Choose a Wavefront OBJ file to transfer\" *.obj");
-//	gRenderDebug->sendRemoteCommand("Button ToggleDisplayMode \"toggle\""); 
+	
 	gRenderDebug->sendRemoteCommand("CheckBox ShowSourceMesh true ShowSourceMesh");
 	gRenderDebug->sendRemoteCommand("CheckBox ShowConvexDecomposition true ShowConvexDecomposition");
 	gRenderDebug->sendRemoteCommand("Slider ScaleInputMesh 1 1 50 ScaleInputMesh");
 	gRenderDebug->sendRemoteCommand("Slider ExplodeViewScale 1 1 4 ExplodeViewScale");
 	gRenderDebug->sendRemoteCommand("Button PerformConvexDecomposition \"decomp\"");
+	gRenderDebug->sendRemoteCommand("Button Cancel \"cancel\"");
 	gRenderDebug->sendRemoteCommand("EndGroup"); // End the group called 'controls'
 
 	
@@ -368,6 +369,11 @@ int main(int argc,const char **argv)
 							{
 								printf("Performing Convex Decomposition\n");
 								thacd->decompose(gVertices, gVertexCount, gIndices, gTriangleCount, gDesc);
+							}
+							else if (strcmp(cmd, "cancel") == 0 && thacd)
+							{
+								printf("Canceling Convex Decomposition\n");
+								thacd->cancel();
 							}
 							else if (strcmp(cmd, "DecompositionDepth") == 0 && argc == 2)
 							{

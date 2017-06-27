@@ -549,7 +549,8 @@ uint32_t OBJ::LoadMesh(const uint8_t *data,uint32_t dlen)
 	mVerts.clear();
 	mTriIndices.clear();
 
-	uint8_t *tdata = new uint8_t[dlen];
+	uint8_t *tdata = new uint8_t[dlen+1];
+	tdata[dlen] = 0;
 	memcpy(tdata,data,dlen);
 	InPlaceParser ipp((char *)tdata,dlen);
 	ipp.Parse(this);

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <unordered_map>
 #include <assert.h>
+#include <atomic>
 
 #define HACD_ALLOC(x) malloc(x)
 #define HACD_FREE(x) free(x)
@@ -170,11 +171,11 @@ public:
 
 	// Merge these input hulls.
 	virtual uint32_t mergeHulls(const MergeHullVector &inputHulls,
-		MergeHullVector &outputHulls,
-		uint32_t mergeHullCount,
-		double smallClusterThreshold,
-		uint32_t maxHullVertices,
-		VHACD::IVHACD::IUserCallback *callback)
+								MergeHullVector &outputHulls,
+								uint32_t mergeHullCount,
+								double smallClusterThreshold,
+								uint32_t maxHullVertices,
+								VHACD::IVHACD::IUserCallback *callback) final
 	{
 		mGuid = 0;
 
@@ -184,16 +185,20 @@ public:
 		mMergeNumHulls = mergeHullCount;
 
 		mTotalVolume = 0;
-		for (uint32_t i=0; i<inputHulls.size(); i++)
+		for (uint32_t i = 0; i < inputHulls.size(); i++)
 		{
 			const MergeHull &h = inputHulls[i];
-			CHull *ch = new CHull(h.mVertexCount,h.mVertices,h.mTriangleCount,h.mIndices,mGuid++);
+			CHull *ch = new CHull(h.mVertexCount, h.mVertices, h.mTriangleCount, h.mIndices, mGuid++);
 			mChulls.push_back(ch);
-			mTotalVolume+=ch->mVolume;
-			if ( callback )
+			mTotalVolume += ch->mVolume;
+			if (callback)
 			{
 				double fraction = (double)i / (double)inputHulls.size();
-				callback->Update(1,1,fraction,"MergeHulls", "Gathering Hulls To Merge");
+				callback->Update(1, 1, fraction, "MergeHulls", "Gathering Hulls To Merge");
+			}
+			if (mCancel)
+			{
+				return 0;
 			}
 		}
 
@@ -201,20 +206,25 @@ public:
 		uint32_t mergeCount = count - mergeHullCount;
 		uint32_t mergeIndex = 0;
 
-		for(;;)
+		for (;;)
 		{
-			if ( callback )
+			if (callback)
 			{
 				double fraction = (double)mergeIndex / (double)mergeCount;
-				callback->Update(1,1,fraction,"MergeHulls","Merging");
+				callback->Update(1, 1, fraction, "MergeHulls", "Merging");
 			}
 			bool combined = combineHulls(); // mege smallest hulls first, up to the max merge count.
-			if ( !combined ) break;
+			if (!combined) break;
 			mergeIndex++;
-		} 
+			if (mCancel)
+			{
+				return 0;
+			}
+
+		}
 
 		// return results..
-		for (uint32_t i=0; i<mChulls.size(); i++)
+		for (uint32_t i = 0; i < mChulls.size(); i++)
 		{
 			CHull *ch = mChulls[i];
 			MergeHull mh;
@@ -223,20 +233,24 @@ public:
 			mh.mIndices = ch->mIndices;
 			mh.mVertices = ch->mVertices;
 			outputHulls.push_back(mh);
-			if ( callback )
+			if (callback)
 			{
 				double fraction = (double)i / (double)mChulls.size();
-				callback->Update(1,1,fraction,"MergeHulls","Gathering Merged Hulls Output");
+				callback->Update(1, 1, fraction, "MergeHulls", "Gathering Merged Hulls Output");
+			}
+			if (mCancel)
+			{
+				return 0;
 			}
 
 		}
 		return (uint32_t)outputHulls.size();
 	}
 
-	virtual void ConvexDecompResult(uint32_t hvcount,const double *hvertices,uint32_t htcount,const uint32_t *hindices)
+	virtual void ConvexDecompResult(uint32_t hvcount, const double *hvertices, uint32_t htcount, const uint32_t *hindices)
 	{
-		CHull *ch = new CHull(hvcount,hvertices,htcount,hindices,mGuid++);
-		if ( ch->mVolume > 0.00001f )
+		CHull *ch = new CHull(hvcount, hvertices, htcount, hindices, mGuid++);
+		if (ch->mVolume > 0.00001f)
 		{
 			mChulls.push_back(ch);
 		}
@@ -247,25 +261,25 @@ public:
 	}
 
 
-	virtual void release(void) 
+	virtual void release(void)
 	{
 		delete this;
 	}
 
-	static double canMerge(CHull *a,CHull *b)
+	static double canMerge(CHull *a, CHull *b)
 	{
-		if ( !a->overlap(*b) ) return 0; // if their AABB's (with a little slop) don't overlap, then return.
+		if (!a->overlap(*b)) return 0; // if their AABB's (with a little slop) don't overlap, then return.
 
 		// ok..we are going to combine both meshes into a single mesh
 		// and then we are going to compute the concavity...
 		double ret = 0;
 
 		uint32_t combinedVertexCount = a->mVertexCount + b->mVertexCount;
-		double *combinedVertices = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double)*3);
+		double *combinedVertices = (double *)HACD_ALLOC(combinedVertexCount * sizeof(double) * 3);
 		double *dest = combinedVertices;
-		memcpy(dest,a->mVertices, sizeof(double)*3*a->mVertexCount);
-		dest+=a->mVertexCount*3;
-		memcpy(dest,b->mVertices,sizeof(double)*3*b->mVertexCount);
+		memcpy(dest, a->mVertices, sizeof(double) * 3 * a->mVertexCount);
+		dest += a->mVertexCount * 3;
+		memcpy(dest, b->mVertices, sizeof(double) * 3 * b->mVertexCount);
 
 		VHACD::ICHull hl;
 		hl.AddPoints((const VHACD::Vec3<double> *)combinedVertices, combinedVertexCount);
@@ -274,7 +288,7 @@ public:
 		{
 			VHACD::TMMesh& mesh = hl.GetMesh();
 			uint32_t tcount = (uint32_t)mesh.GetNTriangles();
-			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
+			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount * sizeof(uint32_t) * 3);
 			mesh.GetIFS((VHACD::Vec3<double> *)combinedVertices, (VHACD::Vec3<int> *)indices);
 			ret = fm_computeMeshVolume(combinedVertices, tcount, indices);
 			HACD_FREE(indices);
@@ -284,15 +298,15 @@ public:
 	}
 
 
-	CHull * doMerge(CHull *a,CHull *b)
+	CHull * doMerge(CHull *a, CHull *b)
 	{
 		CHull *ret = 0;
 		uint32_t combinedVertexCount = a->mVertexCount + b->mVertexCount;
-		double *combinedVertices = (double *)HACD_ALLOC(combinedVertexCount*sizeof(double)*3);
+		double *combinedVertices = (double *)HACD_ALLOC(combinedVertexCount * sizeof(double) * 3);
 		double *dest = combinedVertices;
-		memcpy(dest,a->mVertices, sizeof(double)*3*a->mVertexCount);
-		dest+=a->mVertexCount*3;
-		memcpy(dest,b->mVertices,sizeof(double)*3*b->mVertexCount);
+		memcpy(dest, a->mVertices, sizeof(double) * 3 * a->mVertexCount);
+		dest += a->mVertexCount * 3;
+		memcpy(dest, b->mVertices, sizeof(double) * 3 * b->mVertexCount);
 
 		VHACD::ICHull hl;
 		hl.AddPoints((const VHACD::Vec3<double> *)combinedVertices, combinedVertexCount);
@@ -302,7 +316,7 @@ public:
 			VHACD::TMMesh& mesh = hl.GetMesh();
 			uint32_t tcount = (uint32_t)mesh.GetNTriangles();
 			uint32_t vcount = (uint32_t)mesh.GetNVertices();
-			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount*sizeof(uint32_t) * 3);
+			uint32_t *indices = (uint32_t *)HACD_ALLOC(tcount * sizeof(uint32_t) * 3);
 			mesh.GetIFS((VHACD::Vec3<double> *)combinedVertices, (VHACD::Vec3<int> *)indices);
 			ret = new CHull(vcount, combinedVertices, tcount, indices, mGuid++);
 			HACD_FREE(indices);
@@ -311,14 +325,14 @@ public:
 		return ret;
 	}
 
-	class CombineVolumeJob 
+	class CombineVolumeJob
 	{
 	public:
-		CombineVolumeJob(CHull *hullA,CHull *hullB,uint32_t hashIndex)
+		CombineVolumeJob(CHull *hullA, CHull *hullB, uint32_t hashIndex)
 		{
-			mHullA		= hullA;
-			mHullB		= hullB;
-			mHashIndex	= hashIndex;
+			mHullA = hullA;
+			mHullB = hullB;
+			mHashIndex = hashIndex;
 			mCombinedVolume = canMerge(mHullA, mHullB);
 		}
 
@@ -349,26 +363,26 @@ public:
 		// First, see if there are any pairs of hulls who's combined volume we have not yet calculated.
 		// If there are, then we add them to the jobs list
 		{
-			for (uint32_t i=0; i<count; i++)
+			for (uint32_t i = 0; i < count; i++)
 			{
 				CHull *cr = mChulls[i];
-				for (uint32_t j=i+1; j<count; j++)
+				for (uint32_t j = i + 1; j < count; j++)
 				{
 					CHull *match = mChulls[j];
 					uint32_t hashIndex;
-					if ( match->mGuid < cr->mGuid )
+					if (match->mGuid < cr->mGuid)
 					{
 						hashIndex = (match->mGuid << 16) | cr->mGuid;
 					}
 					else
 					{
-						hashIndex = (cr->mGuid << 16 ) | match->mGuid;
+						hashIndex = (cr->mGuid << 16) | match->mGuid;
 					}
 
 					TestedMap::iterator found = mHasBeenTested.find(hashIndex);
-					if (found == mHasBeenTested.end() )
+					if (found == mHasBeenTested.end())
 					{
-						CombineVolumeJob job(cr,match,hashIndex);
+						CombineVolumeJob job(cr, match, hashIndex);
 						jobs.push_back(job);
 						mHasBeenTested[hashIndex] = 0.0f;  // assign it to some value so we don't try to create more than one job for it.
 					}
@@ -377,7 +391,7 @@ public:
 		}
 
 		// once we have the answers, now put the results into the hash table.
-		for (uint32_t i=0; i<jobs.size(); i++)
+		for (uint32_t i = 0; i < jobs.size(); i++)
 		{
 			CombineVolumeJob &job = jobs[i];
 			mHasBeenTested[job.mHashIndex] = job.mCombinedVolume;
@@ -388,20 +402,20 @@ public:
 		CHull *mergeB = NULL;
 		// now find the two hulls which merged produce the smallest combined volume.
 		{
-			for (uint32_t i=0; i<count; i++)
+			for (uint32_t i = 0; i < count; i++)
 			{
 				CHull *cr = mChulls[i];
-				for (uint32_t j=i+1; j<count; j++)
+				for (uint32_t j = i + 1; j < count; j++)
 				{
 					CHull *match = mChulls[j];
 					uint32_t hashIndex;
-					if ( match->mGuid < cr->mGuid )
+					if (match->mGuid < cr->mGuid)
 					{
 						hashIndex = (match->mGuid << 16) | cr->mGuid;
 					}
 					else
 					{
-						hashIndex = (cr->mGuid << 16 ) | match->mGuid;
+						hashIndex = (cr->mGuid << 16) | match->mGuid;
 					}
 
 					TestedMap::iterator found = mHasBeenTested.find(hashIndex);
@@ -423,21 +437,21 @@ public:
 		// If we found a merge pair, and we are below the merge threshold or we haven't reduced to the target
 		// do the merge.
 		bool thresholdBelow = ((bestVolume / mTotalVolume) * 100.0f) < mSmallClusterThreshold;
-		if ( mergeA && (thresholdBelow || !mergeTargetMet))
+		if (mergeA && (thresholdBelow || !mergeTargetMet))
 		{
-			CHull *merge = doMerge(mergeA,mergeB);
+			CHull *merge = doMerge(mergeA, mergeB);
 
 			double volumeA = mergeA->mVolume;
 			double volumeB = mergeB->mVolume;
 
-			if ( merge )
+			if (merge)
 			{
 				combine = true;
 				output.push_back(merge);
-				for (CHullVector::iterator j=mChulls.begin(); j!=mChulls.end(); ++j)
+				for (CHullVector::iterator j = mChulls.begin(); j != mChulls.end(); ++j)
 				{
 					CHull *h = (*j);
-					if ( h !=mergeA && h != mergeB )
+					if (h != mergeA && h != mergeB)
 					{
 						output.push_back(h);
 					}
@@ -454,6 +468,11 @@ public:
 		return combine;
 	}
 
+	virtual void cancel(void) final
+	{
+		mCancel = true;
+	}
+
 private:
 	TestedMap			mHasBeenTested;
 	uint32_t			mGuid;
@@ -462,6 +481,7 @@ private:
 	uint32_t			mMergeNumHulls;
 	uint32_t			mMaxHullVertices;
 	CHullVector			mChulls;
+	std::atomic<bool>	mCancel{ false };
 };
 
 MergeHullsInterface * createMergeHullsInterface(void)

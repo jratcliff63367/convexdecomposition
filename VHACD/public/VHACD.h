@@ -117,6 +117,15 @@ public:
         = 0;
     virtual bool OCLRelease(IUserLogger* const logger = 0) = 0;
 
+	// In synchronous mode (non-multi-threaded) the state is always 'ready'
+	// In asynchronous mode, this returns true if the background thread is not still actively computing
+	// a new solution.  In an asynchronous config the 'IsReady' call will report any update or log
+	// messages in the caller's current thread.
+	virtual bool IsReady(void) const
+	{
+		return true;
+	}
+
 protected:
     virtual ~IVHACD(void) {}
 };
